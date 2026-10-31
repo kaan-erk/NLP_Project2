@@ -1,0 +1,26 @@
+[
+  {
+    "Model": "HMM (Hidden Markov Model)",
+    "Strict Span F1": 0.3541,
+    "Precision": 0.3132,
+    "Recall": 0.4073,
+    "Token Accuracy": 0.9612,
+    "Training Time (s)": 0.18
+  },
+  {
+    "Model": "Linear-Chain CRF (Feature-based)",
+    "Strict Span F1": 0.4447,
+    "Precision": 0.5443,
+    "Recall": 0.3759,
+    "Token Accuracy": 0.9857,
+    "Training Time (s)": 17.28
+  },
+  {
+    "Model": "BiLSTM-CRF (PyTorch Deep Sequence)",
+    "Strict Span F1": 0.5578,
+    "Precision": 0.5255,
+    "Recall": 0.5944,
+    "Token Accuracy": 0.9866,
+    "Training Time (s)": 268.2
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "B-IDENTITY_ATTACK": 0,
+  "B-INSULT": 1,
+  "B-OBSCENE": 2,
+  "B-OTHER_TOXIC": 3,
+  "B-THREAT": 4,
+  "I-IDENTITY_ATTACK": 5,
+  "I-INSULT": 6,
+  "I-OBSCENE": 7,
+  "I-OTHER_TOXIC": 8,
+  "I-THREAT": 9,
+  "O": 10,
+  "<START>": 11,
+  "<STOP>": 12,
+  "<PAD>": 13
+}
