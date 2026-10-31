@@ -18,3 +18,4 @@ Thumbs.db
 
 # Large Model Checkpoints (optional, keep if <100MB)
 # checkpoints/*.pt
+

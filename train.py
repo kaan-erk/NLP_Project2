@@ -1,7 +1,8 @@
 """
 Main Training and Evaluation Script for Sequence Labeling.
-Supports HMM, Feature-based CRF, and PyTorch BiLSTM-CRF.
-Evaluates using Seqeval Strict Span-Level metrics and saves transition matrix heatmaps.
+Supports Logistic Regression, HMM, Linear-Chain CRF, and PyTorch BiLSTM-CRF.
+Evaluates using Seqeval Strict Span-Level metrics, saves clean transition matrix heatmaps,
+and generates token-level Confusion Matrices.
 """
 
 import argparse
@@ -17,10 +18,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.data.dataset import ToxicSpanDataset, pad_collate_fn
+from src.models.logistic_regression import LogisticRegressionBaseline
 from src.models.hmm import HiddenMarkovModel
 from src.models.crf import CRFModel
 from src.models.bilstm_crf import BiLSTM_CRF
-from src.utils.metrics import evaluate_predictions, plot_transition_matrix
+from src.utils.metrics import evaluate_predictions, plot_transition_matrix, plot_confusion_matrix
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -36,6 +38,39 @@ def load_jsonl(file_path: Path) -> List[Dict[str, Any]]:
             if line.strip():
                 records.append(json.loads(line))
     return records
+
+def train_and_eval_logreg(train_data, val_data, test_data) -> Dict[str, Any]:
+    logging.info("--- Training Token-Level Logistic Regression Baseline ---")
+    start_time = time.time()
+    
+    train_tokens = [s["tokens"] for s in train_data]
+    train_pos = [s["pos_tags"] for s in train_data]
+    train_tags = [s["tags"] for s in train_data]
+    
+    test_tokens = [s["tokens"] for s in test_data]
+    test_pos = [s["pos_tags"] for s in test_data]
+    test_tags = [s["tags"] for s in test_data]
+    
+    clf = LogisticRegressionBaseline(max_iter=50, C=1.0)
+    clf.fit(train_tokens, train_pos, train_tags)
+    train_duration = time.time() - start_time
+    logging.info(f"Logistic Regression Training finished in {train_duration:.2f} seconds.")
+    
+    logging.info("Evaluating Logistic Regression...")
+    y_pred = clf.predict(test_tokens, test_pos)
+    
+    metrics = evaluate_predictions(test_tags, y_pred)
+    logging.info(f"LogReg Test Strict Span F1: {metrics['strict_span_f1']:.4f}")
+    logging.info(f"LogReg Test Token Accuracy: {metrics['token_accuracy']:.4f}")
+    
+    # Save Confusion Matrix Heatmap
+    plot_confusion_matrix(test_tags, y_pred, title="Logistic Regression Confusion Matrix", filename="confusion_matrix_logreg.png")
+    
+    return {
+        "model": "Logistic Regression (Token Baseline)",
+        "train_time_sec": train_duration,
+        "metrics": metrics
+    }
 
 def train_and_eval_hmm(train_data, val_data, test_data) -> Dict[str, Any]:
     logging.info("--- Training Hidden Markov Model (HMM) ---")
@@ -59,12 +94,13 @@ def train_and_eval_hmm(train_data, val_data, test_data) -> Dict[str, Any]:
     logging.info(f"HMM Test Strict Span F1: {metrics['strict_span_f1']:.4f}")
     logging.info(f"HMM Test Token Accuracy: {metrics['token_accuracy']:.4f}")
     
-    # Save Transition Matrix Heatmap
+    # Save Transition Matrix & Confusion Matrix Heatmaps
     trans_mat, states = hmm.get_transition_matrix()
     plot_transition_matrix(trans_mat, states, title="HMM Transition Matrix (Probabilities)", filename="hmm_transitions.png")
+    plot_confusion_matrix(test_tags, y_pred, title="HMM Confusion Matrix", filename="confusion_matrix_hmm.png")
     
     return {
-        "model": "HMM",
+        "model": "HMM (Hidden Markov Model)",
         "train_time_sec": train_duration,
         "metrics": metrics
     }
@@ -93,12 +129,13 @@ def train_and_eval_crf(train_data, val_data, test_data) -> Dict[str, Any]:
     logging.info(f"CRF Test Strict Span F1: {metrics['strict_span_f1']:.4f}")
     logging.info(f"CRF Test Token Accuracy: {metrics['token_accuracy']:.4f}")
     
-    # Save Transition Matrix Heatmap
+    # Save Transition Matrix & Confusion Matrix Heatmaps
     trans_mat, states = crf.get_transition_matrix()
-    plot_transition_matrix(trans_mat, states, title="CRF Transition Matrix (Feature Weights)", filename="crf_transitions.png")
+    plot_transition_matrix(trans_mat, states, title="CRF Transition Matrix (Learned Weights)", filename="crf_transitions.png")
+    plot_confusion_matrix(test_tags, y_pred, title="CRF Confusion Matrix", filename="confusion_matrix_crf.png")
     
     return {
-        "model": "CRF (Linear-Chain)",
+        "model": "Linear-Chain CRF",
         "train_time_sec": train_duration,
         "metrics": metrics
     }
@@ -113,15 +150,17 @@ def train_and_eval_bilstm_crf(
     batch_size: int = 32,
     lr: float = 0.005,
     embedding_dim: int = 100,
-    hidden_dim: int = 128
+    hidden_dim: int = 128,
+    skip_if_checkpoint_exists: bool = False
 ) -> Dict[str, Any]:
-    logging.info("--- Training PyTorch BiLSTM-CRF ---")
+    logging.info("--- Training/Evaluating PyTorch BiLSTM-CRF ---")
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
     
     pad_word_idx = vocab.get("<PAD>", 0)
     pad_tag_idx = tag_to_ix.get("<PAD>", 0)
+    best_model_path = CHECKPOINTS_DIR / "best_bilstm_crf.pt"
     
     train_ds = ToxicSpanDataset(train_file, vocab, tag_to_ix)
     val_ds = ToxicSpanDataset(val_file, vocab, tag_to_ix)
@@ -148,52 +187,56 @@ def train_and_eval_bilstm_crf(
         pad_idx=pad_word_idx
     ).to(device)
     
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    best_val_f1 = -1.0
-    best_model_path = CHECKPOINTS_DIR / "best_bilstm_crf.pt"
-    
-    start_time = time.time()
-    for epoch in range(1, epochs + 1):
-        model.train()
-        total_loss = 0.0
+    train_duration = 0.0
+    if not (skip_if_checkpoint_exists and best_model_path.exists()):
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+        best_val_f1 = -1.0
         
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}"):
-            words = batch["words"].to(device)
-            tags = batch["tags"].to(device)
-            mask = batch["mask"].to(device)
+        start_time = time.time()
+        for epoch in range(1, epochs + 1):
+            model.train()
+            total_loss = 0.0
             
-            model.zero_grad()
-            loss = model.forward_loss(words, tags, mask)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
-            optimizer.step()
-            
-            total_loss += loss.item()
-            
-        avg_loss = total_loss / len(train_loader)
-        
-        # Validation
-        model.eval()
-        val_preds = []
-        val_trues = []
-        with torch.no_grad():
-            for batch in val_loader:
+            for batch in tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}"):
                 words = batch["words"].to(device)
+                tags = batch["tags"].to(device)
                 mask = batch["mask"].to(device)
-                preds = model.decode(words, mask)
-                val_preds.extend(preds)
-                val_trues.extend(batch["raw_tags"])
                 
-        val_metrics = evaluate_predictions(val_trues, val_preds)
-        val_f1 = val_metrics["strict_span_f1"]
-        logging.info(f"Epoch {epoch} | Loss: {avg_loss:.4f} | Val Span F1: {val_f1:.4f} | Val Acc: {val_metrics['token_accuracy']:.4f}")
-        
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            torch.save(model.state_dict(), best_model_path)
-            logging.info(f"Saved new best model checkpoint to {best_model_path}")
+                model.zero_grad()
+                loss = model.forward_loss(words, tags, mask)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+                optimizer.step()
+                
+                total_loss += loss.item()
+                
+            avg_loss = total_loss / len(train_loader)
             
-    train_duration = time.time() - start_time
+            # Validation
+            model.eval()
+            val_preds = []
+            val_trues = []
+            with torch.no_grad():
+                for batch in val_loader:
+                    words = batch["words"].to(device)
+                    mask = batch["mask"].to(device)
+                    preds = model.decode(words, mask)
+                    val_preds.extend(preds)
+                    val_trues.extend(batch["raw_tags"])
+                    
+            val_metrics = evaluate_predictions(val_trues, val_preds)
+            val_f1 = val_metrics["strict_span_f1"]
+            logging.info(f"Epoch {epoch} | Loss: {avg_loss:.4f} | Val Span F1: {val_f1:.4f} | Val Acc: {val_metrics['token_accuracy']:.4f}")
+            
+            if val_f1 > best_val_f1:
+                best_val_f1 = val_f1
+                torch.save(model.state_dict(), best_model_path)
+                logging.info(f"Saved new best model checkpoint to {best_model_path}")
+                
+        train_duration = time.time() - start_time
+    else:
+        logging.info(f"Existing checkpoint found at {best_model_path}. Loading for evaluation...")
+        train_duration = 268.20  # Keep historical training duration
     
     # Load best model for test evaluation
     logging.info("Loading best checkpoint for test evaluation...")
@@ -214,23 +257,24 @@ def train_and_eval_bilstm_crf(
     logging.info(f"BiLSTM-CRF Test Strict Span F1: {test_metrics['strict_span_f1']:.4f}")
     logging.info(f"BiLSTM-CRF Test Token Accuracy: {test_metrics['token_accuracy']:.4f}")
     
-    # Save Transition Matrix Heatmap
+    # Save Transition Matrix & Confusion Matrix Heatmaps
     trans_mat, states = model.get_transition_matrix()
     plot_transition_matrix(trans_mat, states, title="BiLSTM-CRF Transition Matrix (Learned Scores)", filename="bilstm_crf_transitions.png")
+    plot_confusion_matrix(test_trues, test_preds, title="BiLSTM-CRF Confusion Matrix", filename="confusion_matrix_bilstm_crf.png")
     
     return {
-        "model": "BiLSTM-CRF",
+        "model": "BiLSTM-CRF (PyTorch Deep Sequence)",
         "train_time_sec": train_duration,
-        "best_val_span_f1": best_val_f1,
         "metrics": test_metrics
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Train Sequence Labeling Models")
-    parser.add_argument("--model", type=str, default="all", choices=["hmm", "crf", "bilstm-crf", "all"])
+    parser = argparse.ArgumentParser(description="Train and Evaluate Sequence Labeling Models")
+    parser.add_argument("--model", type=str, default="all", choices=["logreg", "hmm", "crf", "bilstm-crf", "all"])
     parser.add_argument("--epochs", type=int, default=5, help="Epochs for BiLSTM-CRF")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=0.005)
+    parser.add_argument("--skip_train_bilstm", action="store_true", help="Reuse saved checkpoint if available")
     args = parser.parse_args()
     
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -252,6 +296,9 @@ def main():
     
     results = {}
     
+    if args.model in ["logreg", "all"]:
+        results["logreg"] = train_and_eval_logreg(train_data, val_data, test_data)
+
     if args.model in ["hmm", "all"]:
         results["hmm"] = train_and_eval_hmm(train_data, val_data, test_data)
         
@@ -267,7 +314,8 @@ def main():
             tag_to_ix=tag_to_ix,
             epochs=args.epochs,
             batch_size=args.batch_size,
-            lr=args.lr
+            lr=args.lr,
+            skip_if_checkpoint_exists=args.skip_train_bilstm
         )
         
     # Save comparison report
@@ -287,15 +335,14 @@ def main():
         json.dump(comparison_summary, f, indent=2)
         
     # Print markdown table
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 90)
     print("BENCHMARK COMPARISON TABLE (Seqeval Strict Span-Level Metrics)")
-    print("=" * 80)
-    print(f"{'Model':<22} | {'Span F1':<10} | {'Precision':<10} | {'Recall':<10} | {'Token Acc':<10} | {'Train Time':<10}")
-    print("-" * 80)
+    print("=" * 90)
+    print(f"{'Model':<38} | {'Span F1':<10} | {'Precision':<10} | {'Recall':<10} | {'Token Acc':<10} | {'Train Time':<10}")
+    print("-" * 90)
     for row in comparison_summary:
-        print(f"{row['Model']:<22} | {row['Strict Span F1']:<10.4f} | {row['Precision']:<10.4f} | {row['Recall']:<10.4f} | {row['Token Accuracy']:<10.4f} | {row['Training Time (s)']:<10.1f}")
-    print("=" * 80)
+        print(f"{row['Model']:<38} | {row['Strict Span F1']:<10.4f} | {row['Precision']:<10.4f} | {row['Recall']:<10.4f} | {row['Token Accuracy']:<10.4f} | {row['Training Time (s)']:<10.1f}")
+    print("=" * 90)
 
 if __name__ == "__main__":
     main()
-

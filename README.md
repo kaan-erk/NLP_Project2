@@ -1,6 +1,6 @@
 # Multi-Aspect Token-Level Rationale & Toxic Span Extraction (Explainable AI)
 
-An end-to-end Sequence Labeling and Token Classification project implementing **Hidden Markov Models (HMM)**, **Feature-based Linear-Chain CRF**, and **PyTorch BiLSTM-CRF** with **Viterbi Decoding** on a fine-grained 11-class BIO scheme.
+An end-to-end Sequence Labeling and Token Classification project implementing **Token-Level Logistic Regression**, **Hidden Markov Models (HMM)**, **Feature-based Linear-Chain CRF**, and **PyTorch BiLSTM-CRF** with **Viterbi Decoding** on a fine-grained 11-class BIO scheme.
 
 ---
 
@@ -9,7 +9,7 @@ An end-to-end Sequence Labeling and Token Classification project implementing **
 * **Downstream Task:** Multi-Aspect Token-Level Rationale & Toxic Span Extraction (Explainable AI)
 * **Dataset:** [SemEval-2021 Task 5 (Toxic Spans)](https://huggingface.co/datasets/heegyu/toxic-spans) + Jigsaw Civil Comments Multi-Attribute Alignments
 * **Number of Classes:** **11 Sınıf** (`O`, `B-INSULT`, `I-INSULT`, `B-IDENTITY_ATTACK`, `I-IDENTITY_ATTACK`, `B-OBSCENE`, `I-OBSCENE`, `B-THREAT`, `I-THREAT`, `B-OTHER_TOXIC`, `I-OTHER_TOXIC`)
-* **Difficulty & Non-Saturation:** Standart CoNLL NER gibi doymuş (saturated) değildir. İnsan etiket uzlaşısı (inter-annotator agreement) %65-70 bandındadır. Baseline modeller %35-45 F1 bandında kalır; derin BiLSTM-CRF modeli %55.78 F1 skoruna ulaşır (kesinlikle %85-90 EM alamaz).
+* **Difficulty & Non-Saturation:** Standart CoNLL NER gibi doymuş (saturated) değildir. İnsan etiket uzlaşısı %65-70 bandındadır. Bağımsız token sınıflandırıcı (Logistic Regression) yalnızca %16.79 Span F1, HMM baseline %35.41 Span F1 alırken, derin BiLSTM-CRF modeli %55.78 F1 skoruna ulaşır (kesinlikle %85-90 EM alamaz).
 * **Data Engineering Effort:** Ham metin ve karakter ofset dizilerinden (`position: [8, 9, 10, ...]`) token sınırlarına hizalama (Token Alignment), bozuk karakter temizliği (NFKC) ve BIO etiket üretimi sıfırdan yapılmıştır.
 
 ---
@@ -20,9 +20,9 @@ Standard toxic comment classification treats text as a black-box binary problem 
 
 This project formulates **Multi-Aspect Token-Level Rationale Extraction** under Explainable AI (XAI):
 1. **Fine-Grained 11-Class BIO Scheme:** Categorizes exact spans into specific forms of toxicity (Insult, Threat, Obscene, Identity Attack, Other Toxic) rather than trivial binary labels.
-2. **Non-Saturated Benchmark:** Due to human annotator variance and fuzzy span boundaries, strict span-level F1 is non-trivial (baselines score ~35–45% Span F1), completely satisfying the non-saturation criteria.
+2. **Non-Saturated Benchmark:** Due to human annotator variance and fuzzy span boundaries, strict span-level F1 is non-trivial (baselines score ~16–45% Span F1), completely satisfying the non-saturation criteria.
 3. **Rigorous Data Engineering:** Raw datasets provide only unaligned character offsets (e.g., `[8, 9, 10, 11]`). Our pipeline aligns character offsets with linguistic tokens using spaCy, computes Intersection-over-Union (IoU) overlap, and constructs strict IOB2 sequences.
-4. **Direct Transition Matrix Modeling:** Both statistical (HMM) and discriminative (CRF, BiLSTM-CRF) models explicitly model label-to-label transition matrices $A \in \mathbb{R}^{K \times K}$ and resolve valid paths via the dynamic programming **Viterbi algorithm**.
+4. **Transition Matrix & Confusion Matrix Modeling:** We model label-to-label transition matrices $A \in \mathbb{R}^{K \times K}$ and evaluate models via dynamic programming **Viterbi decoding** and token-level **Confusion Matrices**.
 
 ---
 
@@ -47,15 +47,18 @@ Evaluated on 1,000 independent test sentences using `seqeval` (Strict Span-Level
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Logistic Regression (Token Baseline)** | **0.1679** | 0.1010 | 0.4983 | 87.62% | 10.41 s |
 | **Hidden Markov Model (HMM)** | **0.3541** | 0.3132 | 0.4073 | 96.12% | 0.18 s |
-| **Linear-Chain CRF (Feature-based)** | **0.4447** | 0.5443 | 0.3759 | 98.57% | 17.28 s |
+| **Linear-Chain CRF (Feature-based)** | **0.4525** | 0.5359 | 0.3916 | 98.58% | 20.62 s |
 | **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.5578** | 0.5255 | 0.5944 | 98.66% | 268.20 s |
 
 ### Key Experimental Insights:
-- **Baseline Non-Saturation:** The HMM baseline scores **35.41% Span F1**, verifying that the task is challenging and far from saturated.
-- **Feature Engineering Lift:** Handcrafted orthographic features (affixes, casing, POS tags, token context windows) boost CRF performance by **+9.06%** over HMM.
-- **Deep Sequence Modeling:** BiLSTM-CRF achieves the highest Strict Span F1 (**55.78%**), demonstrating a **+20.37% absolute improvement** over HMM.
-- **Transition Matrix Heatmaps:** Generated transition matrices are saved under `reports/figures/` (`hmm_transitions.png`, `crf_transitions.png`, `bilstm_crf_transitions.png`), demonstrating that the CRF layers naturally penalize invalid transitions (e.g., $P(\text{I-THREAT} \mid \text{B-INSULT}) \approx -\infty$).
+- **Sequential vs Non-Sequential Modeling:** Logistic Regression achieves only **16.79% Span F1** because it classifies tokens independently and frequently violates BIO grammar rules. Adding sequential transition modeling in HMM boosts Span F1 by **+18.62%**.
+- **Discriminative Feature Engineering:** Linear-Chain CRF incorporates orthographic, casing, POS tags, and context windows, raising Span F1 to **45.25%** (+9.84% over HMM).
+- **Deep Sequence Modeling:** BiLSTM-CRF achieves the benchmark peak at **55.78% Strict Span F1** with **59.44% Recall**, outperforming the baseline by **+38.99% absolute**.
+- **Heatmaps & Diagnostics:**
+  - **Transition Matrices:** [`reports/figures/bilstm_crf_transitions.png`](reports/figures/bilstm_crf_transitions.png), [`reports/figures/crf_transitions.png`](reports/figures/crf_transitions.png), [`reports/figures/hmm_transitions.png`](reports/figures/hmm_transitions.png).
+  - **Confusion Matrices:** [`reports/figures/confusion_matrix_bilstm_crf.png`](reports/figures/confusion_matrix_bilstm_crf.png), [`reports/figures/confusion_matrix_crf.png`](reports/figures/confusion_matrix_crf.png), [`reports/figures/confusion_matrix_hmm.png`](reports/figures/confusion_matrix_hmm.png), [`reports/figures/confusion_matrix_logreg.png`](reports/figures/confusion_matrix_logreg.png).
 
 ---
 
@@ -83,21 +86,26 @@ NLP_Project2/
 │   │   └── dataset.py                 # PyTorch Dataset and dynamic padding collate_fn
 │   │
 │   ├── models/
+│   │   ├── logistic_regression.py     # Independent token-level classification baseline
 │   │   ├── hmm.py                     # Statistical Hidden Markov Model + Laplace smoothing
 │   │   ├── crf.py                     # Feature-based Linear-Chain CRF (L-BFGS)
 │   │   └── bilstm_crf.py              # PyTorch BiLSTM-CRF with Forward Alg & Viterbi
 │   │
 │   └── utils/
-│       └── metrics.py                 # Seqeval Strict Span F1 & Transition heatmaps
+│       └── metrics.py                 # Seqeval Strict Span F1, Confusion & Transition heatmaps
 │
 ├── checkpoints/                       # Saved PyTorch model weights
 │   └── best_bilstm_crf.pt
 │
 ├── reports/
-│   ├── figures/                       # Transition matrix heatmap plots
+│   ├── figures/                       # Heatmap plots for transitions & confusion matrices
 │   │   ├── hmm_transitions.png
 │   │   ├── crf_transitions.png
-│   │   └── bilstm_crf_transitions.png
+│   │   ├── bilstm_crf_transitions.png
+│   │   ├── confusion_matrix_logreg.png
+│   │   ├── confusion_matrix_hmm.png
+│   │   ├── confusion_matrix_crf.png
+│   │   └── confusion_matrix_bilstm_crf.png
 │   ├── data_preprocessing_pipeline.md # Detailed data engineering documentation
 │   └── benchmark_comparison.json      # Comparative evaluation results
 │
@@ -139,13 +147,16 @@ python src/data/preprocess.py
 
 ### 3. Model Training & Benchmarking
 ```bash
-# Train and evaluate Hidden Markov Model (HMM)
+# Train Logistic Regression baseline
+python train.py --model logreg
+
+# Train Hidden Markov Model (HMM)
 python train.py --model hmm
 
-# Train and evaluate Linear-Chain CRF
+# Train Linear-Chain CRF
 python train.py --model crf
 
-# Train and evaluate PyTorch BiLSTM-CRF
+# Train PyTorch BiLSTM-CRF
 python train.py --model bilstm-crf --epochs 5 --lr 0.005
 
 # Benchmark all models sequentially and generate comparison table
@@ -154,30 +165,7 @@ python train.py --model all
 
 ---
 
-## 🔬 6. Model Architecture & Mathematical Formulation
-
-### 1. Hidden Markov Model (HMM)
-- **Transition Probabilities:**
-  $$P(y_t \mid y_{t-1}) = \frac{C(y_{t-1}, y_t) + \alpha}{C(y_{t-1}) + \alpha |S|}$$
-- **Emission Probabilities:**
-  $$P(x_t \mid y_t) = \frac{C(y_t, x_t) + \beta}{C(y_t) + \beta |V|}$$
-- **Inference:** Exact dynamic programming via the Viterbi algorithm.
-
-### 2. Feature-based Linear-Chain CRF
-Models conditional distribution $P(y \mid x) = \frac{1}{Z(x)} \exp \left( \sum_{t=1}^T \sum_k w_k f_k(y_{t-1}, y_t, x, t) \right)$ using handcrafted orthographic features (prefixes, suffixes, casing, punctuation), part-of-speech (POS) tags, and contextual token windows ($t-1$, $t+1$).
-
-### 3. PyTorch BiLSTM-CRF
-- **BiLSTM Representation:** Projects token embeddings through forward and backward LSTM cells to produce contextual emissions $P_{i, y_i}$.
-- **CRF Transition Layer:** Models label transition matrix $A_{j, i}$ directly as learnable parameters.
-- **Partition Function:** Evaluated via the Forward algorithm in log-space using the numerically stable `log_sum_exp` operator:
-  $$\log Z(x) = \log \sum_{y'} \exp(\text{Score}(x, y'))$$
-- **Objective:** Minimized via Negative Log-Likelihood loss:
-  $$\mathcal{L}_{\text{NLL}} = \log Z(x) - \text{Score}(x, y)$$
-- **Decoding:** Exact optimal sequence decoding via Viterbi backtracking.
-
----
-
-## 👥 7. Team Contributions
+## 👥 6. Team Contributions
 
 All team member contributions are documented individually under `contributions/`:
 Format: `contributions/<STUDENT_NAME>_<STUDENT_ID>_<GITHUB_USERNAME>.md`  
@@ -186,6 +174,6 @@ See [`contributions/TEMPLATE.md`](contributions/TEMPLATE.md) for instructions.
 
 ---
 
-## 📜 8. License
+## 📜 7. License
 
 This project and its accompanying datasets are distributed under the [MIT License](LICENSE).

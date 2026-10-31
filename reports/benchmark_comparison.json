@@ -1,5 +1,13 @@
 [
   {
+    "Model": "Logistic Regression (Token Baseline)",
+    "Strict Span F1": 0.1679,
+    "Precision": 0.101,
+    "Recall": 0.4983,
+    "Token Accuracy": 0.8762,
+    "Training Time (s)": 10.41
+  },
+  {
     "Model": "HMM (Hidden Markov Model)",
     "Strict Span F1": 0.3541,
     "Precision": 0.3132,
@@ -8,12 +16,12 @@
     "Training Time (s)": 0.18
   },
   {
-    "Model": "Linear-Chain CRF (Feature-based)",
-    "Strict Span F1": 0.4447,
-    "Precision": 0.5443,
-    "Recall": 0.3759,
-    "Token Accuracy": 0.9857,
-    "Training Time (s)": 17.28
+    "Model": "Linear-Chain CRF",
+    "Strict Span F1": 0.4525,
+    "Precision": 0.5359,
+    "Recall": 0.3916,
+    "Token Accuracy": 0.9858,
+    "Training Time (s)": 20.62
   },
   {
     "Model": "BiLSTM-CRF (PyTorch Deep Sequence)",
