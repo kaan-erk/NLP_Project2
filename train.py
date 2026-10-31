@@ -63,8 +63,9 @@ def train_and_eval_logreg(train_data, val_data, test_data) -> Dict[str, Any]:
     logging.info(f"LogReg Test Strict Span F1: {metrics['strict_span_f1']:.4f}")
     logging.info(f"LogReg Test Token Accuracy: {metrics['token_accuracy']:.4f}")
     
-    # Save Confusion Matrix Heatmap
+    # Save Confusion Matrix Heatmaps (Full and Toxic-Only)
     plot_confusion_matrix(test_tags, y_pred, title="Logistic Regression Confusion Matrix", filename="confusion_matrix_logreg.png")
+    plot_confusion_matrix(test_tags, y_pred, title="Logistic Regression Confusion Matrix", filename="confusion_matrix_logreg_toxic_only.png", toxic_only=True)
     
     return {
         "model": "Logistic Regression (Token Baseline)",
@@ -94,10 +95,11 @@ def train_and_eval_hmm(train_data, val_data, test_data) -> Dict[str, Any]:
     logging.info(f"HMM Test Strict Span F1: {metrics['strict_span_f1']:.4f}")
     logging.info(f"HMM Test Token Accuracy: {metrics['token_accuracy']:.4f}")
     
-    # Save Transition Matrix & Confusion Matrix Heatmaps
+    # Save Transition Matrix & Confusion Matrix Heatmaps (Full and Toxic-Only)
     trans_mat, states = hmm.get_transition_matrix()
     plot_transition_matrix(trans_mat, states, title="HMM Transition Matrix (Probabilities)", filename="hmm_transitions.png")
     plot_confusion_matrix(test_tags, y_pred, title="HMM Confusion Matrix", filename="confusion_matrix_hmm.png")
+    plot_confusion_matrix(test_tags, y_pred, title="HMM Confusion Matrix", filename="confusion_matrix_hmm_toxic_only.png", toxic_only=True)
     
     return {
         "model": "HMM (Hidden Markov Model)",
@@ -129,10 +131,11 @@ def train_and_eval_crf(train_data, val_data, test_data) -> Dict[str, Any]:
     logging.info(f"CRF Test Strict Span F1: {metrics['strict_span_f1']:.4f}")
     logging.info(f"CRF Test Token Accuracy: {metrics['token_accuracy']:.4f}")
     
-    # Save Transition Matrix & Confusion Matrix Heatmaps
+    # Save Transition Matrix & Confusion Matrix Heatmaps (Full and Toxic-Only)
     trans_mat, states = crf.get_transition_matrix()
     plot_transition_matrix(trans_mat, states, title="CRF Transition Matrix (Learned Weights)", filename="crf_transitions.png")
     plot_confusion_matrix(test_tags, y_pred, title="CRF Confusion Matrix", filename="confusion_matrix_crf.png")
+    plot_confusion_matrix(test_tags, y_pred, title="CRF Confusion Matrix", filename="confusion_matrix_crf_toxic_only.png", toxic_only=True)
     
     return {
         "model": "Linear-Chain CRF",
@@ -257,10 +260,11 @@ def train_and_eval_bilstm_crf(
     logging.info(f"BiLSTM-CRF Test Strict Span F1: {test_metrics['strict_span_f1']:.4f}")
     logging.info(f"BiLSTM-CRF Test Token Accuracy: {test_metrics['token_accuracy']:.4f}")
     
-    # Save Transition Matrix & Confusion Matrix Heatmaps
+    # Save Transition Matrix & Confusion Matrix Heatmaps (Full and Toxic-Only)
     trans_mat, states = model.get_transition_matrix()
     plot_transition_matrix(trans_mat, states, title="BiLSTM-CRF Transition Matrix (Learned Scores)", filename="bilstm_crf_transitions.png")
     plot_confusion_matrix(test_trues, test_preds, title="BiLSTM-CRF Confusion Matrix", filename="confusion_matrix_bilstm_crf.png")
+    plot_confusion_matrix(test_trues, test_preds, title="BiLSTM-CRF Confusion Matrix", filename="confusion_matrix_bilstm_crf_toxic_only.png", toxic_only=True)
     
     return {
         "model": "BiLSTM-CRF (PyTorch Deep Sequence)",

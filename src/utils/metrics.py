@@ -1,7 +1,7 @@
 """
 Evaluation and visualization utilities for sequence labeling.
 Computes seqeval Span-Level F1/Precision/Recall, plots CRF transition heatmaps,
-and generates token-level Confusion Matrices.
+and generates both Full and Toxic-Only token-level Confusion Matrices.
 """
 
 from pathlib import Path
@@ -20,8 +20,17 @@ from seqeval.scheme import IOB2
 
 FIGURES_DIR = Path("reports/figures")
 
-CORE_BIO_TAGS = [
-    "O",
+# Order with toxic categories first and 'O' at the END to keep visual diagonal intuitive
+ORDERED_BIO_TAGS = [
+    "B-INSULT", "I-INSULT",
+    "B-IDENTITY_ATTACK", "I-IDENTITY_ATTACK",
+    "B-OBSCENE", "I-OBSCENE",
+    "B-THREAT", "I-THREAT",
+    "B-OTHER_TOXIC", "I-OTHER_TOXIC",
+    "O"
+]
+
+TOXIC_ONLY_TAGS = [
     "B-INSULT", "I-INSULT",
     "B-IDENTITY_ATTACK", "I-IDENTITY_ATTACK",
     "B-OBSCENE", "I-OBSCENE",
@@ -30,15 +39,12 @@ CORE_BIO_TAGS = [
 ]
 
 def evaluate_predictions(y_true: List[List[str]], y_pred: List[List[str]]) -> Dict[str, Any]:
-    """
-    Computes strict span-level metrics using seqeval (IOB2 scheme) without warnings.
-    """
+    """Computes strict span-level metrics using seqeval (IOB2 scheme)."""
     f1 = seqeval_f1(y_true, y_pred, mode="strict", scheme=IOB2, zero_division=0)
     prec = seqeval_precision(y_true, y_pred, mode="strict", scheme=IOB2, zero_division=0)
     rec = seqeval_recall(y_true, y_pred, mode="strict", scheme=IOB2, zero_division=0)
     report = seqeval_report(y_true, y_pred, mode="strict", scheme=IOB2, digits=4, zero_division=0)
     
-    # Token-level accuracy
     total_tokens = sum(len(t) for t in y_true)
     correct_tokens = sum(
         sum(1 for yt, yp in zip(t_seq, p_seq) if yt == yp)
@@ -63,17 +69,15 @@ def plot_transition_matrix(
 ):
     """
     Plots and saves a clean heatmap of transition probabilities/scores.
-    Filters out special tokens (<START>, <STOP>, <PAD>) to prevent extreme scale skewing.
+    Filters out special tokens (<START>, <STOP>, <PAD>).
     """
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     out_path = FIGURES_DIR / filename
     
-    # Identify non-special tokens
     valid_indices = [i for i, label in enumerate(labels) if not label.startswith("<")]
     clean_labels = [labels[i] for i in valid_indices]
     clean_matrix = matrix[np.ix_(valid_indices, valid_indices)].copy()
     
-    # Clip extreme values for visual clarity if values are logits/unbounded
     if clean_matrix.min() < -10.0 or clean_matrix.max() > 10.0:
         clean_matrix = np.clip(clean_matrix, clip_range[0], clip_range[1])
 
@@ -96,7 +100,6 @@ def plot_transition_matrix(
     plt.tight_layout()
     plt.savefig(out_path, dpi=300)
     plt.close()
-    print(f"Transition matrix heatmap saved to: {out_path}")
     return out_path
 
 def plot_confusion_matrix(
@@ -104,31 +107,30 @@ def plot_confusion_matrix(
     y_pred: List[List[str]], 
     title: str = "Token-Level Confusion Matrix",
     filename: str = "confusion_matrix.png",
-    normalize: bool = True
+    normalize: bool = True,
+    toxic_only: bool = False
 ):
     """
-    Flattens token tags, computes scikit-learn confusion matrix across the 11 classes,
-    and saves an annotated heatmap.
+    Flattens token tags and computes confusion matrix.
+    toxic_only: If True, zooms into the 10 toxic classes, excluding the dominant 'O' class.
     """
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     out_path = FIGURES_DIR / filename
     
-    # Flatten sequences
     flat_true = [tag for seq in y_true for tag in seq]
     flat_pred = [tag for seq in y_pred for tag in seq]
     
-    # Use standard 11 classes present in dataset
-    all_classes = [c for c in CORE_BIO_TAGS if c in set(flat_true).union(set(flat_pred))]
+    classes_to_use = TOXIC_ONLY_TAGS if toxic_only else ORDERED_BIO_TAGS
+    active_classes = [c for c in classes_to_use if c in set(flat_true).union(set(flat_pred))]
     
-    cm = confusion_matrix(flat_true, flat_pred, labels=all_classes)
+    cm = confusion_matrix(flat_true, flat_pred, labels=active_classes)
     
     if normalize:
-        # Normalize by row (true class count) to show recall per class
         row_sums = cm.sum(axis=1, keepdims=True)
         row_sums[row_sums == 0] = 1
         cm_to_plot = cm.astype("float") / row_sums
         fmt = ".2f"
-        cbar_label = "Proportion (Recall)"
+        cbar_label = "Recall per Class"
     else:
         cm_to_plot = cm
         fmt = "d"
@@ -137,15 +139,16 @@ def plot_confusion_matrix(
     plt.figure(figsize=(11, 9))
     sns.heatmap(
         cm_to_plot,
-        xticklabels=all_classes,
-        yticklabels=all_classes,
-        cmap="Blues",
+        xticklabels=active_classes,
+        yticklabels=active_classes,
+        cmap="Blues" if not toxic_only else "YlOrRd",
         annot=True,
         fmt=fmt,
         cbar_kws={"label": cbar_label},
         linewidths=0.5
     )
-    plt.title(f"{title} ({'Normalized' if normalize else 'Counts'})", fontsize=13, pad=12, fontweight="bold")
+    subtitle = "Toxic Classes Only" if toxic_only else "All 11 Classes (O at End)"
+    plt.title(f"{title} - {subtitle} ({'Normalized' if normalize else 'Counts'})", fontsize=13, pad=12, fontweight="bold")
     plt.xlabel("Predicted Tag", fontsize=11)
     plt.ylabel("True Gold Tag", fontsize=11)
     plt.xticks(rotation=45, ha="right")
@@ -153,5 +156,4 @@ def plot_confusion_matrix(
     plt.tight_layout()
     plt.savefig(out_path, dpi=300)
     plt.close()
-    print(f"Confusion matrix heatmap saved to: {out_path}")
     return out_path

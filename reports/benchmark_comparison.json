@@ -5,7 +5,7 @@
     "Precision": 0.101,
     "Recall": 0.4983,
     "Token Accuracy": 0.8762,
-    "Training Time (s)": 10.41
+    "Training Time (s)": 11.03
   },
   {
     "Model": "HMM (Hidden Markov Model)",
@@ -13,7 +13,7 @@
     "Precision": 0.3132,
     "Recall": 0.4073,
     "Token Accuracy": 0.9612,
-    "Training Time (s)": 0.18
+    "Training Time (s)": 0.25
   },
   {
     "Model": "Linear-Chain CRF",
@@ -21,7 +21,7 @@
     "Precision": 0.5359,
     "Recall": 0.3916,
     "Token Accuracy": 0.9858,
-    "Training Time (s)": 20.62
+    "Training Time (s)": 20.42
   },
   {
     "Model": "BiLSTM-CRF (PyTorch Deep Sequence)",
