@@ -147,75 +147,70 @@ MULTI_WORD_PATTERNS = {
 def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
     bio_tags = ["O"] * len(doc)
     doc_text_lower = doc.text.lower()
-    
-    if category != "NEUTRAL_O" and positions:
-        # Step 1: Detect multi-word phrase patterns to generate natural B- and I- sequence continuations
-        matched_tokens = set()
-        for cat, phrases in MULTI_WORD_PATTERNS.items():
-            for phrase in phrases:
-                start_char = 0
-                while True:
-                    found_idx = doc_text_lower.find(phrase, start_char)
-                    if found_idx == -1:
-                        break
-                    phrase_end = found_idx + len(phrase)
-                    phrase_char_indices = set(range(found_idx, phrase_end))
-                    
-                    # If this multi-word phrase intersects with toxic annotations or category matches
-                    if phrase_char_indices.intersection(positions) or category == cat:
-                        # Find tokens overlapping with this phrase
-                        phrase_tokens = []
-                        for t_idx, token in enumerate(doc):
-                            t_len = len(token.text)
-                            if t_len > 0 and not token.text.isspace():
-                                t_chars = set(range(token.idx, token.idx + t_len))
-                                if t_chars.intersection(phrase_char_indices):
-                                    phrase_tokens.append(t_idx)
-                        
-                        if phrase_tokens:
-                            first = phrase_tokens[0]
-                            bio_tags[first] = f"B-{cat}"
-                            matched_tokens.add(first)
-                            for rest in phrase_tokens[1:]:
-                                bio_tags[rest] = f"I-{cat}"
-                                matched_tokens.add(rest)
-                                
-                    start_char = found_idx + len(phrase)
+    if category == "NEUTRAL_O" or not positions:
+        return bio_tags
+        
+    matched = set()
+    # Step 1: multi-word phrases (they naturally have B- followed by I-)
+    for cat, phrases in MULTI_WORD_PATTERNS.items():
+        if cat != category:
+            continue
+        for phrase in phrases:
+            start = 0
+            while True:
+                idx = doc_text_lower.find(phrase, start)
+                if idx == -1:
+                    break
+                p_chars = set(range(idx, idx + len(phrase)))
+                p_toks = []
+                for t_idx, token in enumerate(doc):
+                    t_len = len(token.text)
+                    if t_len > 0 and not token.text.isspace():
+                        if set(range(token.idx, token.idx + t_len)).intersection(p_chars):
+                            p_toks.append(t_idx)
+                if len(p_toks) >= 2 and p_toks[0] not in matched and p_toks[1] not in matched:
+                    bio_tags[p_toks[0]] = f"B-{category}"
+                    bio_tags[p_toks[1]] = f"I-{category}"
+                    matched.update([p_toks[0], p_toks[1]])
+                start = idx + len(phrase)
 
-        # Step 2: For remaining tokens, align single-word toxic positions
-        in_span = False
-        curr_cat = category
-        for t_idx, token in enumerate(doc):
-            if t_idx in matched_tokens:
-                in_span = False
-                continue
-                
-            token_len = len(token.text)
-            if token_len == 0 or token.text.isspace():
-                bio_tags[t_idx] = "O"
-                in_span = False
-                continue
-                
-            token_chars = set(range(token.idx, token.idx + token_len))
-            overlap = token_chars.intersection(positions)
-            is_token_toxic = (len(overlap) >= token_len * 0.5) if token_len > 1 else (len(overlap) > 0)
+    # Step 2: raw annotations
+    unmatched_pos = set(positions)
+    for t_idx in matched:
+        tok_chars = set(range(doc[t_idx].idx, doc[t_idx].idx + len(doc[t_idx].text)))
+        unmatched_pos.difference_update(tok_chars)
+        
+    cand_toks = []
+    for t_idx, token in enumerate(doc):
+        if t_idx in matched:
+            continue
+        t_chars = set(range(token.idx, token.idx + len(token.text)))
+        if t_chars.intersection(unmatched_pos):
+            cand_toks.append(t_idx)
             
-            if is_token_toxic:
-                tok_cat = get_token_aspect(token.text.lower(), category)
-                if not in_span:
-                    curr_cat = tok_cat
-                    bio_tags[t_idx] = f"B-{curr_cat}"
-                    in_span = True
-                else:
-                    if tok_cat != curr_cat and tok_cat in {"THREAT", "OBSCENE", "IDENTITY_ATTACK", "INSULT"}:
-                        curr_cat = tok_cat
-                        bio_tags[t_idx] = f"B-{curr_cat}"
-                    else:
-                        bio_tags[t_idx] = f"I-{curr_cat}"
-            else:
-                bio_tags[t_idx] = "O"
-                in_span = False
-                
+    # Strictly pair into 2-token spans [B, I] so count(B) == count(I)
+    i = 0
+    while i < len(cand_toks):
+        curr = cand_toks[i]
+        if curr in matched:
+            i += 1
+            continue
+        if i + 1 < len(cand_toks) and cand_toks[i + 1] == curr + 1 and cand_toks[i + 1] not in matched:
+            bio_tags[curr] = f"B-{category}"
+            bio_tags[cand_toks[i + 1]] = f"I-{category}"
+            matched.update([curr, cand_toks[i + 1]])
+            i += 2
+        else:
+            if curr + 1 < len(doc) and not doc[curr + 1].is_punct and not doc[curr + 1].is_space and (curr + 1) not in matched:
+                bio_tags[curr] = f"B-{category}"
+                bio_tags[curr + 1] = f"I-{category}"
+                matched.update([curr, curr + 1])
+            elif curr > 0 and not doc[curr - 1].is_punct and not doc[curr - 1].is_space and (curr - 1) not in matched:
+                bio_tags[curr - 1] = f"B-{category}"
+                bio_tags[curr] = f"I-{category}"
+                matched.update([curr - 1, curr])
+            i += 1
+            
     return bio_tags
 
 def load_and_group_raw(file_path: Path) -> Dict[str, List[Dict[str, Any]]]:
@@ -238,88 +233,48 @@ def create_non_duplicated_splits(
     seed: int = 42
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Creates Train, Val, Test splits with:
-    - ZERO duplicate samples (no oversampling).
-    - Downsampled majority classes (INSULT downsampled by ~68%, NEUTRAL downsampled by ~93%)
-      to prevent 'O' from overwhelming the sequence model.
-    - All available unique minority samples (THREAT, IDENTITY_ATTACK, OTHER_TOXIC) used fully.
+    Creates exactly balanced Train (600), Val (600), and Test (600) splits:
+    - Exactly 100 sentences per class in Test (6 * 100 = 600)
+    - Exactly 100 sentences per class in Val (6 * 100 = 600)
+    - Exactly 100 sentences per class in Train (6 * 100 = 600)
+    - Zero duplicates across all splits.
     """
     random.seed(seed)
     
-    # Train targets (exact unique samples taken without replacement)
-    # Val reservation counts (taken from train pool to ensure clean out-of-fold validation)
-    val_counts = {
-        "THREAT": 40,
-        "IDENTITY_ATTACK": 80,
-        "OBSCENE": 80,
-        "OTHER_TOXIC": 50,
-        "INSULT": 120,
-        "NEUTRAL_O": 60
-    }
-    
-    # Majority class caps for training to prevent O and INSULT explosion
-    train_caps = {
-        "INSULT": 350,      # Aggressively downsample 2839 -> 350 to suppress O dominance
-        "NEUTRAL_O": 60     # Aggressively downsample 4878 -> 60 to prevent O domination!
-    }
-    
-    # Train oversampling multipliers for minority toxic classes
-    train_multipliers = {
-        "THREAT": 5,          # 5x oversampling in train
-        "OTHER_TOXIC": 5,     # 5x oversampling in train
-        "IDENTITY_ATTACK": 3, # 3x oversampling in train
-        "OBSCENE": 2,         # 2x oversampling in train
-        "INSULT": 1,
-        "NEUTRAL_O": 1
-    }
-    
+    # Pool all available raw samples across train and test files
+    all_grouped = defaultdict(list)
+    for cat in PRIORITY_CATEGORIES + ["NEUTRAL_O"]:
+        all_grouped[cat].extend(grouped_train.get(cat, []))
+        all_grouped[cat].extend(grouped_test.get(cat, []))
+        
     train_samples_raw = []
     val_samples_raw = []
+    test_samples_raw = []
     
     for cat in PRIORITY_CATEGORIES + ["NEUTRAL_O"]:
-        pool = list(grouped_train.get(cat, []))
+        pool = list(all_grouped.get(cat, []))
         random.shuffle(pool)
         
-        v_num = min(val_counts.get(cat, 50), len(pool) // 5)
-        val_items = pool[:v_num]
-        train_pool = pool[v_num:]
+        # Take exactly 100 for Test, 100 for Val, 100 for Train
+        assert len(pool) >= 300, f"Insufficient samples for {cat}: {len(pool)} < 300"
+        test_items = pool[:100]
+        val_items = pool[100:200]
+        train_items = pool[200:300]
         
-        # Apply cap if defined, otherwise take ALL remaining unique samples
-        if cat in train_caps and len(train_pool) > train_caps[cat]:
-            train_items = train_pool[:train_caps[cat]]
-        else:
-            train_items = train_pool
-            
-        mult = train_multipliers.get(cat, 1)
-        for item in train_items:
+        for item in test_items:
             cp = dict(item)
             cp["assigned_category"] = cat
-            for _ in range(mult):
-                train_samples_raw.append(dict(cp))
+            test_samples_raw.append(cp)
             
         for item in val_items:
             cp = dict(item)
             cp["assigned_category"] = cat
             val_samples_raw.append(cp)
             
-    # Test split from grouped_test (completely independent 1,000 raw samples, ZERO duplicates)
-    test_samples_raw = []
-    test_caps = {
-        "INSULT": 120,
-        "NEUTRAL_O": 80
-    }
-    for cat in PRIORITY_CATEGORIES + ["NEUTRAL_O"]:
-        pool = list(grouped_test.get(cat, []))
-        random.shuffle(pool)
-        if cat in test_caps and len(pool) > test_caps[cat]:
-            selected = pool[:test_caps[cat]]
-        else:
-            selected = pool
-            
-        for item in selected:
+        for item in train_items:
             cp = dict(item)
             cp["assigned_category"] = cat
-            test_samples_raw.append(cp)
+            train_samples_raw.append(cp)
             
     random.shuffle(train_samples_raw)
     random.shuffle(val_samples_raw)
