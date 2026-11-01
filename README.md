@@ -6,11 +6,11 @@ An end-to-end Sequence Labeling and Token Classification project implementing **
 
 ## 📋 Course Project 2 Submission Info (P2 Sheet Summary)
 
-* **Downstream Task:** Multi-Aspect Token-Level Rationale & Toxic Span Extraction (Explainable AI)
-* **Dataset:** [SemEval-2021 Task 5 (Toxic Spans)](https://huggingface.co/datasets/heegyu/toxic-spans) + Jigsaw Civil Comments Multi-Attribute Alignments
+* **Downstream Task:** Multi-Aspect Token-Level Rationale & Toxic Span Extraction (Explainable AI / Sequence Labeling)
+* **Dataset:** [SemEval-2021 Task 5 (Toxic Spans)](https://huggingface.co/datasets/heegyu/toxic-spans) + Jigsaw Civil Comments Multi-Attribute Alignments (Stratified Balanced Resampling)
 * **Number of Classes:** **11 Sınıf** (`O`, `B-INSULT`, `I-INSULT`, `B-IDENTITY_ATTACK`, `I-IDENTITY_ATTACK`, `B-OBSCENE`, `I-OBSCENE`, `B-THREAT`, `I-THREAT`, `B-OTHER_TOXIC`, `I-OTHER_TOXIC`)
-* **Difficulty & Non-Saturation:** Standart CoNLL NER gibi doymuş (saturated) değildir. İnsan etiket uzlaşısı %65-70 bandındadır. Bağımsız token sınıflandırıcı (Logistic Regression) yalnızca %16.79 Span F1, HMM baseline %35.41 Span F1 alırken, derin BiLSTM-CRF modeli %55.78 F1 skoruna ulaşır (kesinlikle %85-90 EM alamaz).
-* **Data Engineering Effort:** Ham metin ve karakter ofset dizilerinden (`position: [8, 9, 10, ...]`) token sınırlarına hizalama (Token Alignment), bozuk karakter temizliği (NFKC) ve BIO etiket üretimi sıfırdan yapılmıştır.
+* **Difficulty & Non-Saturation:** Standart CoNLL NER gibi doymuş (saturated) değildir. İnsan etiket uzlaşısı %65-70 bandındadır. Bağımsız token sınıflandırıcı (Logistic Regression) yalnızca %9.45 Span F1 alırken, HMM %13.37, CRF %15.47 ve BiLSTM-CRF %16.28 Strict Span F1 alır (kesinlikle %85-90 EM alamaz; model karşılaştırmaları için ideal bir non-saturated kıyaslama sunar).
+* **Data Engineering Effort:** Ham metin ve karakter ofset dizilerinden (`position: [8, 9, 10, ...]`) token sınırlarına hizalama (Token Alignment), bozuk karakter temizliği (NFKC), Inverse-Frequency Multi-Label önceliklendirmesi ve azınlık sınıfların ezilmesini önleyen Stratified Balanced Resampling sıfırdan yapılmıştır.
 
 ---
 
@@ -20,22 +20,23 @@ Standard toxic comment classification treats text as a black-box binary problem 
 
 This project formulates **Multi-Aspect Token-Level Rationale Extraction** under Explainable AI (XAI):
 1. **Fine-Grained 11-Class BIO Scheme:** Categorizes exact spans into specific forms of toxicity (Insult, Threat, Obscene, Identity Attack, Other Toxic) rather than trivial binary labels.
-2. **Non-Saturated Benchmark:** Due to human annotator variance and fuzzy span boundaries, strict span-level F1 is non-trivial (baselines score ~16–45% Span F1), completely satisfying the non-saturation criteria.
-3. **Rigorous Data Engineering:** Raw datasets provide only unaligned character offsets (e.g., `[8, 9, 10, 11]`). Our pipeline aligns character offsets with linguistic tokens using spaCy, computes Intersection-over-Union (IoU) overlap, and constructs strict IOB2 sequences.
-4. **Transition Matrix & Confusion Matrix Modeling:** We model label-to-label transition matrices $A \in \mathbb{R}^{K \times K}$ and evaluate models via dynamic programming **Viterbi decoding** and token-level **Confusion Matrices**.
+2. **Stratified Balanced Resampling:** Eliminates dominant class monopolization. The 5 toxic categories are resampled in equal numbers (~450 `B-` tokens each in train, ~45 each in test), preventing `INSULT` from swallowing severe minority labels like `THREAT` and `IDENTITY_ATTACK`.
+3. **Non-Saturated Benchmark:** Due to human annotator variance, multi-word span boundaries, and fine-grained categories, strict span-level F1 is non-trivial (baselines score ~9–16% Span F1), completely satisfying the course's non-saturation criteria.
+4. **Rigorous Data Engineering:** Raw datasets provide only unaligned character offsets (e.g., `[8, 9, 10, 11]`). Our pipeline aligns character offsets with linguistic tokens using spaCy, computes Intersection-over-Union (IoU) overlap, and constructs strict IOB2 sequences.
+5. **Transition Matrix & Confusion Matrix Modeling:** We model label-to-label transition matrices $A \in \mathbb{R}^{K \times K}$ and evaluate models via dynamic programming **Viterbi decoding** and both Full and **Toxic-Only Confusion Matrices**.
 
 ---
 
 ## 🏷️ 2. Tagset & 11-Class BIO Taxonomy
 
-| Tag | Semantic Description | Example Tokens |
-| :--- | :--- | :--- |
-| `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` |
-| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` |
-| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups |
-| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms |
-| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` |
-| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks |
+| Tag | Semantic Description | Example Tokens | Train Count | Test Count |
+| :--- | :--- | :--- | :---: | :---: |
+| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 473 / 84 | 48 / 6 |
+| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 473 / 141 | 45 / 15 |
+| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 455 / 28 | 44 / 3 |
+| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 453 / 235 | 45 / 10 |
+| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 449 / 65 | 46 / 6 |
+| `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` | 95,507 | 9,305 |
 
 *Special Sequence Model Tokens:* `<START>`, `<STOP>`, `<PAD>`.
 
@@ -43,22 +44,23 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 ## 📊 3. Experimental Benchmark Results
 
-Evaluated on 1,000 independent test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
+Evaluated on 240 independent balanced test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Logistic Regression (Token Baseline)** | **0.1679** | 0.1010 | 0.4983 | 87.62% | 10.41 s |
-| **Hidden Markov Model (HMM)** | **0.3541** | 0.3132 | 0.4073 | 96.12% | 0.18 s |
-| **Linear-Chain CRF (Feature-based)** | **0.4525** | 0.5359 | 0.3916 | 98.58% | 20.62 s |
-| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.5578** | 0.5255 | 0.5944 | 98.66% | 268.20 s |
+| **Logistic Regression (Token Baseline)** | **0.0945** | 0.0617 | **0.2018** | 86.45% | 6.85 s |
+| **Hidden Markov Model (HMM)** | **0.1337** | 0.1983 | 0.1009 | 96.68% | 0.05 s |
+| **Linear-Chain CRF (Feature-based)** | **0.1547** | 0.2090 | 0.1228 | 97.04% | 4.66 s |
+| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.1628** | **0.2414** | 0.1228 | **97.27%** | 63.50 s |
 
 ### Key Experimental Insights:
-- **Sequential vs Non-Sequential Modeling:** Logistic Regression achieves only **16.79% Span F1** because it classifies tokens independently and frequently violates BIO grammar rules. Adding sequential transition modeling in HMM boosts Span F1 by **+18.62%**.
-- **Discriminative Feature Engineering:** Linear-Chain CRF incorporates orthographic, casing, POS tags, and context windows, raising Span F1 to **45.25%** (+9.84% over HMM).
-- **Deep Sequence Modeling:** BiLSTM-CRF achieves the benchmark peak at **55.78% Strict Span F1** with **59.44% Recall**, outperforming the baseline by **+38.99% absolute**.
-- **Heatmaps & Diagnostics:**
+- **Independent vs Sequential Modeling:** Logistic Regression achieves only **9.45% Span F1** because it classifies tokens in isolation without structural awareness, creating broken entity spans. HMM enforces grammatical transition probabilities via Viterbi decoding, boosting F1 to **13.37%**.
+- **Discriminative Features:** Linear-Chain CRF utilizes orthographic, casing, POS tags, and token context windows, pushing Span F1 to **15.47%**.
+- **Deep Contextual Sequences:** PyTorch BiLSTM-CRF achieves the highest benchmark precision (**24.14%**) and peak Strict Span F1 (**16.28%**).
+- **Diagnostic Heatmaps:**
   - **Transition Matrices:** [`reports/figures/bilstm_crf_transitions.png`](reports/figures/bilstm_crf_transitions.png), [`reports/figures/crf_transitions.png`](reports/figures/crf_transitions.png), [`reports/figures/hmm_transitions.png`](reports/figures/hmm_transitions.png).
-  - **Confusion Matrices:** [`reports/figures/confusion_matrix_bilstm_crf.png`](reports/figures/confusion_matrix_bilstm_crf.png), [`reports/figures/confusion_matrix_crf.png`](reports/figures/confusion_matrix_crf.png), [`reports/figures/confusion_matrix_hmm.png`](reports/figures/confusion_matrix_hmm.png), [`reports/figures/confusion_matrix_logreg.png`](reports/figures/confusion_matrix_logreg.png).
+  - **Full Confusion Matrices:** [`reports/figures/confusion_matrix_logreg.png`](reports/figures/confusion_matrix_logreg.png), [`reports/figures/confusion_matrix_hmm.png`](reports/figures/confusion_matrix_hmm.png), [`reports/figures/confusion_matrix_crf.png`](reports/figures/confusion_matrix_crf.png), [`reports/figures/confusion_matrix_bilstm_crf.png`](reports/figures/confusion_matrix_bilstm_crf.png).
+  - **Toxic-Only Confusion Matrices:** [`reports/figures/confusion_matrix_logreg_toxic_only.png`](reports/figures/confusion_matrix_logreg_toxic_only.png), [`reports/figures/confusion_matrix_hmm_toxic_only.png`](reports/figures/confusion_matrix_hmm_toxic_only.png), [`reports/figures/confusion_matrix_crf_toxic_only.png`](reports/figures/confusion_matrix_crf_toxic_only.png), [`reports/figures/confusion_matrix_bilstm_crf_toxic_only.png`](reports/figures/confusion_matrix_bilstm_crf_toxic_only.png).
 
 ---
 
@@ -71,18 +73,18 @@ NLP_Project2/
 │   ├── raw/                           # Raw downloaded datasets (JSONL format)
 │   │   ├── toxic_spans_train_raw.jsonl   (10,006 raw comments with character offsets)
 │   │   └── toxic_spans_test_raw.jsonl    (1,000 raw comments)
-│   └── processed/                     # Cleaned, tokenized, and aligned BIO splits
-│       ├── train.jsonl                   (8,506 aligned training sequences)
-│       ├── val.jsonl                     (1,500 validation sequences)
-│       ├── test.jsonl                    (1,000 test sequences)
-│       ├── vocab.json                    (Word vocabulary with min_freq=2)
+│   └── processed/                     # Cleaned, tokenized, and balanced BIO splits
+│       ├── train.jsonl                   (2,400 balanced sequences: 400 per class + 400 neutral)
+│       ├── val.jsonl                     (300 validation sequences)
+│       ├── test.jsonl                    (240 test sequences)
+│       ├── vocab.json                    (Word vocabulary with min_freq=2, 4,717 tokens)
 │       ├── tag_to_ix.json                (Mapping of 11 BIO tags + special tokens)
 │       └── dataset_summary.json          (Token statistics and distribution)
 │
 ├── src/
 │   ├── data/
 │   │   ├── download.py                # Hugging Face automated dataset fetcher
-│   │   ├── preprocess.py              # Character-to-token BIO alignment & sanitization
+│   │   ├── preprocess.py              # Stratified balanced resampling & token alignment
 │   │   └── dataset.py                 # PyTorch Dataset and dynamic padding collate_fn
 │   │
 │   ├── models/
@@ -103,14 +105,18 @@ NLP_Project2/
 │   │   ├── crf_transitions.png
 │   │   ├── bilstm_crf_transitions.png
 │   │   ├── confusion_matrix_logreg.png
+│   │   ├── confusion_matrix_logreg_toxic_only.png
 │   │   ├── confusion_matrix_hmm.png
+│   │   ├── confusion_matrix_hmm_toxic_only.png
 │   │   ├── confusion_matrix_crf.png
-│   │   └── confusion_matrix_bilstm_crf.png
+│   │   ├── confusion_matrix_crf_toxic_only.png
+│   │   ├── confusion_matrix_bilstm_crf.png
+│   │   └── confusion_matrix_bilstm_crf_toxic_only.png
 │   ├── data_preprocessing_pipeline.md # Detailed data engineering documentation
 │   └── benchmark_comparison.json      # Comparative evaluation results
 │
 ├── contributions/                     # Individual student contribution reports
-│   └── TEMPLATE.md                    # Template for team member reports
+│   └── KAAN_ERK_TORAMAN_220901564_kaan-erk.md # Kaan Erk Toraman contribution report
 │
 ├── train.py                           # Unified training & evaluation CLI runner
 ├── LICENSE                            # MIT Open Source License
@@ -124,7 +130,7 @@ NLP_Project2/
 ### 1. Environment Setup
 ```bash
 # Clone the repository
-git clone https://github.com/<YOUR_REPO>/NLP_Project2.git
+git clone https://github.com/kaan-erk/NLP_Project2.git
 cd NLP_Project2
 
 # Create and activate virtual environment
@@ -141,7 +147,7 @@ python -m spacy download en_core_web_sm
 # 1. Fetch raw data from Hugging Face
 python src/data/download.py
 
-# 2. Run character-to-token BIO alignment and generate splits
+# 2. Run character-to-token BIO alignment and stratified balanced resampling
 python src/data/preprocess.py
 ```
 
@@ -169,8 +175,7 @@ python train.py --model all
 
 All team member contributions are documented individually under `contributions/`:
 Format: `contributions/<STUDENT_NAME>_<STUDENT_ID>_<GITHUB_USERNAME>.md`  
-*(Example: `contributions/HASAN_KAYA_230123123_hasankayyya.md`)*  
-See [`contributions/TEMPLATE.md`](contributions/TEMPLATE.md) for instructions.
+Lead Data Engineer: [`contributions/KAAN_ERK_TORAMAN_220901564_kaan-erk.md`](contributions/KAAN_ERK_TORAMAN_220901564_kaan-erk.md)
 
 ---
 

@@ -10,9 +10,9 @@
 
 ## 1. Overview of Contributions
 
-In this project, I was primarily responsible for the **end-to-end Data Engineering, Preprocessing, and Token Alignment Pipeline**. 
+In this project, I was primarily responsible for the **end-to-end Data Engineering, Preprocessing, Token Alignment, and Stratified Balanced Resampling Pipeline**. 
 
-Because the downstream sequence labeling task requires fine-grained 11-class BIO sequences while the raw data from Hugging Face (`heegyu/toxic-spans`) provided only raw unaligned character offsets (e.g., `[8, 9, 10, 11]`) and messy web text, I designed and implemented the entire pipeline from scratch to transform raw data into model-ready JSONL files, vocabularies, and PyTorch dataset loaders.
+Because the downstream sequence labeling task requires fine-grained 11-class BIO sequences while the raw data from Hugging Face (`heegyu/toxic-spans`) provided only raw unaligned character offsets (e.g., `[8, 9, 10, 11]`), co-occurring multi-label noise, and heavily skewed class distributions, I designed and implemented the entire pipeline from scratch. This converted raw web posts into clean, linguistically aligned, perfectly balanced datasets, custom vocabularies, and dynamic PyTorch sequence loaders.
 
 ---
 
@@ -35,26 +35,28 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
 - Implemented the decision rule ($\text{Overlap} \ge 0.5$) to classify tokens as toxic or neutral (`O`).
 - Enforced strict IOB2 boundary grammar rules: span beginnings receive `B-<CATEGORY>`, continuous tokens receive `I-<CATEGORY>`, and states cleanly reset to `O`.
 
-### D. Fine-Grained 11-Class BIO Taxonomy Construction
-- Normalized raw category annotations into 5 core toxicity dimensions + `O`:
-  - `B-INSULT`, `I-INSULT`
-  - `B-IDENTITY_ATTACK`, `I-IDENTITY_ATTACK`
-  - `B-OBSCENE`, `I-OBSCENE`
-  - `B-THREAT`, `I-THREAT`
-  - `B-OTHER_TOXIC`, `I-OTHER_TOXIC`
-  - `O`
-- Added special transition symbols for probabilistic models: `<START>`, `<STOP>`, `<PAD>`.
+### D. Multi-Aspect Inverse-Frequency Priority & Disambiguation
+- In the raw annotations, almost every severe comment labeled as `threat` or `identity_attack` was simultaneously labeled as `insult`. A naive majority-vote selection caused `insult` to swallow over 85% of all toxic spans.
+- Designed an **Inverse-Frequency Priority Rule**:
+  $$\text{Priority: } \text{THREAT} > \text{IDENTITY\_ATTACK} > \text{OBSCENE} > \text{OTHER\_TOXIC} > \text{INSULT}$$
+  ensuring that critical minority toxicity signals are preserved.
 
-### E. Split Generation, Vocabulary & Statistics
-- Partitioned raw training data into an 85% train split (`data/processed/train.jsonl` - 8,506 samples) and a 15% validation split (`data/processed/val.jsonl` - 1,500 samples), preserving the 1,000-sample test benchmark (`data/processed/test.jsonl`).
-- Built frequency-filtered word vocabulary (`data/processed/vocab.json`, 10,651 tokens, $N_{\min}=2$) with `<PAD>` and `<UNK>` tokens.
-- Generated `data/processed/tag_to_ix.json` and computed statistical distributions (`data/processed/dataset_summary.json`).
+### E. Stratified Multi-Class Balanced Resampling Architecture
+- To eliminate extreme class collapse, implemented an exact stratified resampling engine:
+  - **Train Split (`data/processed/train.jsonl`):** Exactly 400 sentences per toxic category (2,000 toxic sentences) + 400 neutral sentences = 2,400 sentences total.
+  - **Val Split (`data/processed/val.jsonl`):** Exactly 50 sentences per category = 300 sentences total.
+  - **Test Split (`data/processed/test.jsonl`):** Exactly 40 sentences per category = 240 sentences total.
+- Achieved equalized entity representation across all 5 classes (~450 `B-` tokens each in train, ~45 each in test), allowing models to learn features for all toxic aspects equitably.
 
-### F. PyTorch Data Pipeline (`src/data/dataset.py`)
+### F. Split Generation, Vocabulary & Statistics
+- Built frequency-filtered word vocabulary (`data/processed/vocab.json`, 4,717 tokens, $N_{\min}=2$) with `<PAD>` and `<UNK>` tokens.
+- Generated `data/processed/tag_to_ix.json` (14 total symbols including BIO and sequence boundaries) and computed distribution reports (`data/processed/dataset_summary.json`).
+
+### G. PyTorch Data Pipeline (`src/data/dataset.py`)
 - Implemented `ToxicSpanDataset` class wrapping token sequences, vocabulary lookups, and BIO tag indices.
 - Designed `pad_collate_fn` for dynamic batch-level sequence padding (`<PAD>=0`) and binary attention mask generation (`mask = (words != 0).float()`) required by the BiLSTM-CRF model.
 
-### G. Documentation
+### H. Documentation
 - Authored the comprehensive data engineering report: [`reports/data_preprocessing_pipeline.md`](../reports/data_preprocessing_pipeline.md).
 
 ---
@@ -63,5 +65,6 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
 My contributions are reflected in the following core commits:
 - Data acquisition script and raw data storage (`src/data/download.py`)
 - Core character-to-token alignment and preprocessing pipeline (`src/data/preprocess.py`)
+- Multi-aspect inverse-frequency disambiguation and stratified balanced resampling (`src/data/preprocess.py`)
 - PyTorch dataset and dynamic collate functions (`src/data/dataset.py`)
 - Data engineering documentation and summary statistics (`reports/data_preprocessing_pipeline.md`, `data/processed/`)

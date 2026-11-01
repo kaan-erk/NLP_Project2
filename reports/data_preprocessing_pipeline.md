@@ -51,33 +51,52 @@ Because human annotators mark character spans while sequence models operate on d
 $$\text{Overlap Ratio} = \frac{|\text{TokenChars} \cap \text{ToxicCharOffsets}|}{|\text{TokenChars}|}$$
 A token is marked toxic if $\text{Overlap Ratio} \ge 0.5$ (or $\ge 1$ character for single-character punctuation).
 
-### Step 4: BIO Boundary Enforcement
-1. When transitioning from `O` to a toxic token with category $C$, the token receives tag `B-C`.
-2. Subsequent contiguous toxic tokens with the same category receive tag `I-C`.
-3. If non-toxic tokens intervene, the state resets to `O`.
+### Step 4: Inverse-Frequency Multi-Label Disambiguation
+In raw social media comments, almost every severe comment labeled as `threat` or `identity_attack` is also co-labeled as `insult`. A naive majority-vote resolution causes `insult` to dominate over 85% of all toxic spans, completely starving minority categories.
+To guarantee semantic diversity, we enforce an **Inverse-Frequency Priority Rule**:
+$$\text{Priority: } \text{THREAT} > \text{IDENTITY\_ATTACK} > \text{OBSCENE} > \text{OTHER\_TOXIC} > \text{INSULT}$$
+
+### Step 5: Stratified Balanced Resampling
+To eliminate extreme class imbalance, we implemented exact stratified resampling across all 5 toxic categories, pairing them with an equal portion of clean neutral comments:
+- **Train Split:** Exactly 400 sentences per toxic category (2,000 toxic sentences) + 400 clean neutral sentences = 2,400 sentences total.
+- **Validation Split:** Exactly 50 sentences per category = 300 sentences total.
+- **Test Split:** Exactly 40 sentences per category = 240 sentences total.
 
 ---
 
-## 4. Dataset Splits & Statistics
-- **Training Set (`train.jsonl`):** 8,506 samples (85% split)
-- **Validation Set (`val.jsonl`):** 1,500 samples (15% split)
-- **Test Set (`test.jsonl`):** 1,000 samples (Independent test split)
-- **Vocabulary Size:** 10,651 unique words ($N_{\min}=2$).
-- **Tag Distribution in Training:**
-  - `O`: 370,749 tokens
-  - `B-INSULT`: 4,285 tokens | `I-INSULT`: 522 tokens
-  - `B-OBSCENE`: 305 tokens | `I-OBSCENE`: 69 tokens
-  - `B-IDENTITY_ATTACK`: 184 tokens | `I-IDENTITY_ATTACK`: 139 tokens
-  - `B-OTHER_TOXIC`: 90 tokens | `I-OTHER_TOXIC`: 31 tokens
-  - `B-THREAT`: 64 tokens | `I-THREAT`: 78 tokens
+## 4. Balanced Dataset Statistics
+
+### Dataset Splits
+- **Training Set (`train.jsonl`):** 2,400 samples
+- **Validation Set (`val.jsonl`):** 300 samples
+- **Test Set (`test.jsonl`):** 240 samples
+- **Vocabulary Size:** 4,717 unique words ($N_{\min}=2$).
+
+### Balanced Tag Distribution
+
+| Tag | Train Token Count | Test Token Count | Ratio Balance |
+| :--- | :--- | :--- | :--- |
+| **`B-OBSCENE`** | 473 | 48 | Balanced (~20%) |
+| **`B-IDENTITY_ATTACK`** | 473 | 45 | Balanced (~20%) |
+| **`B-INSULT`** | 455 | 44 | Balanced (~20%) |
+| **`B-THREAT`** | 453 | 45 | Balanced (~20%) |
+| **`B-OTHER_TOXIC`** | 449 | 46 | Balanced (~20%) |
+| `I-THREAT` | 235 | 10 | Context-dependent |
+| `I-IDENTITY_ATTACK`| 141 | 15 | Context-dependent |
+| `I-OBSCENE` | 84 | 6 | Context-dependent |
+| `I-OTHER_TOXIC` | 65 | 6 | Context-dependent |
+| `I-INSULT` | 28 | 3 | Context-dependent |
+| `O` (Neutral Tokens)| 95,507 | 9,305 | Natural sequence surplus |
+
+> [!NOTE]
+> In natural sequence labeling tasks, `O` represents the surrounding non-toxic sentence syntax (grammatical background) and will naturally exceed entity tokens in quantity. However, the 5 toxic entity categories now possess strictly equal, balanced representations (~450-473 `B-` tokens each in training, and ~44-48 `B-` tokens each in testing), completely eliminating minority starvation.
 
 ---
 
-## 5. Execution
+## 5. Execution Pipeline
 Run the data pipeline end-to-end:
 ```bash
 python src/data/download.py
 python src/data/preprocess.py
 ```
-Outputs are written to `data/processed/`.
-
+Preprocessed data splits and summary metadata are written to `data/processed/`.
