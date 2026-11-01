@@ -48,10 +48,10 @@ Evaluated on 420 independent test sentences using `seqeval` (Strict Span-Level I
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **BiLSTM-CRF (PyTorch Deep Sequence + Continuation Prior)**| **0.6636** | 0.6141 | **0.7218** | 97.89% | 96.54 s |
-| **Linear-Chain CRF (Feature-based)** | 0.6216 | **0.6745** | 0.5764 | **98.02%** | 9.17 s |
-| **Hidden Markov Model (HMM)** | 0.6091 | 0.5699 | 0.6541 | 97.54% | 0.06 s |
-| **Logistic Regression (Token Baseline + Class Weights)** | 0.4356 | 0.3138 | 0.7118 | 93.69% | 8.49 s |
+| **Linear-Chain CRF (Feature-based)** | **0.6247** | **0.6556** | 0.5965 | **98.04%** | 19.29 s |
+| **BiLSTM-CRF (PyTorch Deep Sequence + Continuation Prior)**| 0.6226 | 0.5880 | 0.6617 | 97.86% | 191.90 s |
+| **Hidden Markov Model (HMM)** | 0.5978 | 0.5418 | 0.6667 | 97.39% | 0.17 s |
+| **Logistic Regression (Token Baseline + Class Weights)** | 0.4366 | 0.3149 | **0.7118** | 93.61% | 7.22 s |
 
 ### Key Experimental Insights:
 - **Hardcoded CRF Structural Constraints (-10000.0 Transition Shield):** Injected an immutable masking matrix into `BiLSTM_CRF` locking impossible transitions (`O -> I-X`, `B-THREAT -> I-OBSCENE`, `<START> -> I-X`) permanently to `-10000.0`. The model's raw inference output is physically incapable of producing an invalid BIO sequence.

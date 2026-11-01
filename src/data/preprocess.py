@@ -259,8 +259,18 @@ def create_non_duplicated_splits(
     
     # Majority class caps for training to prevent O and INSULT explosion
     train_caps = {
-        "INSULT": 950,      # Downsample 2839 -> 950
-        "NEUTRAL_O": 350    # Downsample 4878 -> 350 to prevent O domination!
+        "INSULT": 350,      # Aggressively downsample 2839 -> 350 to suppress O dominance
+        "NEUTRAL_O": 60     # Aggressively downsample 4878 -> 60 to prevent O domination!
+    }
+    
+    # Train oversampling multipliers for minority toxic classes
+    train_multipliers = {
+        "THREAT": 5,          # 5x oversampling in train
+        "OTHER_TOXIC": 5,     # 5x oversampling in train
+        "IDENTITY_ATTACK": 3, # 3x oversampling in train
+        "OBSCENE": 2,         # 2x oversampling in train
+        "INSULT": 1,
+        "NEUTRAL_O": 1
     }
     
     train_samples_raw = []
@@ -280,10 +290,12 @@ def create_non_duplicated_splits(
         else:
             train_items = train_pool
             
+        mult = train_multipliers.get(cat, 1)
         for item in train_items:
             cp = dict(item)
             cp["assigned_category"] = cat
-            train_samples_raw.append(cp)
+            for _ in range(mult):
+                train_samples_raw.append(dict(cp))
             
         for item in val_items:
             cp = dict(item)
