@@ -182,12 +182,26 @@ def train_and_eval_bilstm_crf(
         collate_fn=lambda b: pad_collate_fn(b, pad_word_idx, pad_tag_idx)
     )
     
+    # Calculate smoothed inverse square root class weights (w_c = 1 / sqrt(freq_c))
+    tag_counts = torch.zeros(len(tag_to_ix))
+    for s in train_ds.samples:
+        for t in s["tags"]:
+            if t in tag_to_ix:
+                tag_counts[tag_to_ix[t]] += 1
+                
+    tag_counts = torch.clamp(tag_counts, min=1.0)
+    inv_sqrt = 1.0 / torch.sqrt(tag_counts)
+    class_weights = inv_sqrt / inv_sqrt.mean()
+    class_weights = torch.clamp(class_weights, min=0.2, max=5.0).to(device)
+    logging.info(f"Smoothed Inverse Square Root class weights computed (min={class_weights.min():.2f}, max={class_weights.max():.2f})")
+    
     model = BiLSTM_CRF(
         vocab_size=len(vocab),
         tag_to_ix=tag_to_ix,
         embedding_dim=embedding_dim,
         hidden_dim=hidden_dim,
-        pad_idx=pad_word_idx
+        pad_idx=pad_word_idx,
+        class_weights=class_weights
     ).to(device)
     
     train_duration = 0.0

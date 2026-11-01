@@ -1,16 +1,16 @@
 """
-Token-level Logistic Regression Baseline for Sequence Labeling.
-Classifies each token independently without sequence transition modeling.
-Serves as an essential non-sequence baseline to demonstrate the value of HMM/CRF/BiLSTM.
+Logistic Regression Token Classification Baseline.
+Classifies tokens independently using local lexical and syntactic features,
+with smoothed inverse square root class weighting.
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
+from collections import Counter
 import numpy as np
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 
-def extract_token_features(sent_tokens: List[str], sent_pos: List[str], i: int) -> Dict[str, Any]:
-    """Extract orthographic and local window features for a single token."""
+def word2features(sent_tokens: List[str], sent_pos: List[str], i: int) -> Dict[str, Any]:
     word = sent_tokens[i]
     pos = sent_pos[i] if sent_pos else "UNK"
 
@@ -43,47 +43,48 @@ def extract_token_features(sent_tokens: List[str], sent_pos: List[str], i: int) 
 class LogisticRegressionBaseline:
     def __init__(self, max_iter: int = 50, C: float = 1.0):
         self.vectorizer = DictVectorizer(sparse=True)
-        self.clf = LogisticRegression(
-            C=C,
-            max_iter=max_iter,
-            class_weight="balanced",
-            solver="lbfgs",
-            random_state=42
-        )
+        self.max_iter = max_iter
+        self.C = C
+        self.clf = None
         self.classes_ = []
 
     def fit(self, sentences_tokens: List[List[str]], sentences_pos: List[List[str]], sentences_tags: List[List[str]]):
-        flat_features = []
-        flat_labels = []
+        all_features = []
+        all_tags = []
 
-        for tokens, pos, tags in zip(sentences_tokens, sentences_pos, sentences_tags):
+        for tokens, pos_seq, tags in zip(sentences_tokens, sentences_pos, sentences_tags):
             for i in range(len(tokens)):
-                flat_features.append(extract_token_features(tokens, pos, i))
-                flat_labels.append(tags[i])
+                all_features.append(word2features(tokens, pos_seq, i))
+                all_tags.append(tags[i])
 
-        X = self.vectorizer.fit_transform(flat_features)
-        self.clf.fit(X, flat_labels)
-        self.classes_ = list(self.clf.classes_)
+        X = self.vectorizer.fit_transform(all_features)
+        y = np.array(all_tags)
+        self.classes_ = sorted(list(set(all_tags)))
 
-    def predict(self, sentences_tokens: List[List[str]], sentences_pos: List[List[str]]) -> List[List[str]]:
-        flat_features = []
-        sentence_lengths = []
+        # Smoothed Inverse Square Root Class Weights (w_c = 1 / sqrt(freq_c))
+        tag_counts = Counter(all_tags)
+        raw_weights = {cls: 1.0 / np.sqrt(tag_counts.get(cls, 1)) for cls in self.classes_}
+        mean_w = np.mean(list(raw_weights.values()))
+        smoothed_weights = {cls: float(np.clip(w / mean_w, 0.2, 5.0)) for cls, w in raw_weights.items()}
 
-        for tokens, pos in zip(sentences_tokens, sentences_pos):
-            sentence_lengths.append(len(tokens))
-            for i in range(len(tokens)):
-                flat_features.append(extract_token_features(tokens, pos, i))
+        self.clf = LogisticRegression(
+            C=self.C,
+            max_iter=self.max_iter,
+            class_weight=smoothed_weights,
+            solver="lbfgs",
+            random_state=42
+        )
+        self.clf.fit(X, y)
 
-        if not flat_features:
-            return [[] for _ in sentences_tokens]
-
-        X = self.vectorizer.transform(flat_features)
-        flat_preds = self.clf.predict(X)
-
-        predicted_sequences = []
-        offset = 0
-        for length in sentence_lengths:
-            predicted_sequences.append(list(flat_preds[offset : offset + length]))
-            offset += length
-
-        return predicted_sequences
+    def predict(self, sentences_tokens: List[List[str]], sentences_pos: List[List[str]] = None) -> List[List[str]]:
+        predictions = []
+        for i, tokens in enumerate(sentences_tokens):
+            if not tokens:
+                predictions.append([])
+                continue
+            pos_seq = sentences_pos[i] if sentences_pos else []
+            feat_list = [word2features(tokens, pos_seq, t) for t in range(len(tokens))]
+            X_sent = self.vectorizer.transform(feat_list)
+            preds = self.clf.predict(X_sent)
+            predictions.append(list(preds))
+        return predictions

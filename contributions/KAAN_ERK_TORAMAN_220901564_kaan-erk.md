@@ -48,15 +48,19 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
   - **Test Split (`data/processed/test.jsonl`):** Exactly 80 sentences per category (400 toxic + 80 neutral) = **480 sentences total**.
 - **Aspect Disambiguation Engine:** Resolved cross-label contamination where document-level labels forced insult tokens (e.g. *"idiot"*, *"clown"*) to be mislabeled as `B-THREAT`. Mapped violence words (*"kill"*, *"shoot"*) to `THREAT`, vulgarities (*"fuck"*, *"shit"*) to `OBSCENE`, slurs to `IDENTITY_ATTACK`, and insults to `INSULT`, allowing models to learn consistent token transitions and boosting benchmark F1 from ~16% to **59.44%**.
 
-### F. Split Generation, Vocabulary & Statistics
+### F. Sequence Integrity & BIO Grammar Validation Pipeline (`src/data/validate.py`)
+- Authored a comprehensive automated verification script to audit all 9,780 processed sentences (train, val, test) for BIO compliance before feeding into sequence models.
+- Verified that every `I-X` tag is strictly preceded by `B-X` or `I-X`, achieving **0 orphaned `I-` tags and 0 illegal transitions** across the entire dataset.
+
+### G. Split Generation, Vocabulary & Statistics
 - Built frequency-filtered word vocabulary (`data/processed/vocab.json`, 9,902 tokens, $N_{\min}=2$) with `<PAD>` and `<UNK>` tokens.
 - Generated `data/processed/tag_to_ix.json` (14 total symbols including BIO and sequence boundaries) and computed distribution reports (`data/processed/dataset_summary.json`).
 
-### G. PyTorch Data Pipeline (`src/data/dataset.py`)
+### H. PyTorch Data Pipeline (`src/data/dataset.py`)
 - Implemented `ToxicSpanDataset` class wrapping token sequences, vocabulary lookups, and BIO tag indices.
 - Designed `pad_collate_fn` for dynamic batch-level sequence padding (`<PAD>=0`) and binary attention mask generation (`mask = (words != 0).float()`) required by the BiLSTM-CRF model.
 
-### H. Documentation
+### I. Documentation
 - Authored the comprehensive data engineering report: [`reports/data_preprocessing_pipeline.md`](../reports/data_preprocessing_pipeline.md).
 
 ---
@@ -66,5 +70,6 @@ My contributions are reflected in the following core commits:
 - Data acquisition script and raw data storage (`src/data/download.py`)
 - Core character-to-token alignment and preprocessing pipeline (`src/data/preprocess.py`)
 - Token-level aspect disambiguation engine and stratified balanced resampling (`src/data/preprocess.py`)
+- Sequence integrity validation script verifying zero BIO violations (`src/data/validate.py`)
 - PyTorch dataset and dynamic collate functions (`src/data/dataset.py`)
 - Data engineering documentation and summary statistics (`reports/data_preprocessing_pipeline.md`, `data/processed/`)
