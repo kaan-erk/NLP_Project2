@@ -169,6 +169,17 @@ def train_and_eval_bilstm_crf(
     val_ds = ToxicSpanDataset(val_file, vocab, tag_to_ix)
     test_ds = ToxicSpanDataset(test_file, vocab, tag_to_ix)
     
+    # --- OVERSAMPLE MINORITY CLASSES ---
+    logging.info("Oversampling minority toxic classes in training data...")
+    oversampled_data = []
+    for s in train_ds.samples:
+        oversampled_data.append(s)
+        # If the sentence contains a rare tag, duplicate it 4 extra times
+        if any(t in s["tags"] for t in ["B-THREAT", "I-THREAT", "B-IDENTITY_ATTACK", "I-IDENTITY_ATTACK", "B-OTHER_TOXIC"]):
+            oversampled_data.extend([s] * 4)
+            
+    train_ds.samples = oversampled_data
+    # -----------------------------------
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True,
         collate_fn=lambda b: pad_collate_fn(b, pad_word_idx, pad_tag_idx)
