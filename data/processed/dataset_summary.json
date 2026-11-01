@@ -22,29 +22,29 @@
     "<PAD>": 13
   },
   "train_tag_distribution": {
-    "O": 130358,
-    "B-INSULT": 2278,
-    "B-OBSCENE": 658,
-    "B-IDENTITY_ATTACK": 349,
-    "B-THREAT": 178,
-    "I-THREAT": 175,
-    "I-IDENTITY_ATTACK": 173,
-    "I-OBSCENE": 134,
-    "B-OTHER_TOXIC": 116,
-    "I-INSULT": 90,
-    "I-OTHER_TOXIC": 37
+    "O": 130225,
+    "B-INSULT": 2271,
+    "B-OBSCENE": 670,
+    "B-IDENTITY_ATTACK": 371,
+    "I-IDENTITY_ATTACK": 204,
+    "B-THREAT": 188,
+    "I-THREAT": 184,
+    "I-OBSCENE": 174,
+    "B-OTHER_TOXIC": 121,
+    "I-INSULT": 93,
+    "I-OTHER_TOXIC": 45
   },
   "test_tag_distribution": {
-    "O": 16941,
+    "O": 16933,
     "B-INSULT": 257,
-    "B-OBSCENE": 76,
-    "I-IDENTITY_ATTACK": 32,
-    "B-IDENTITY_ATTACK": 29,
+    "B-OBSCENE": 77,
+    "B-IDENTITY_ATTACK": 31,
+    "I-IDENTITY_ATTACK": 31,
+    "B-OTHER_TOXIC": 18,
     "I-INSULT": 18,
-    "B-OTHER_TOXIC": 17,
     "B-THREAT": 16,
-    "I-OBSCENE": 13,
-    "I-THREAT": 8,
-    "I-OTHER_TOXIC": 6
+    "I-OBSCENE": 16,
+    "I-OTHER_TOXIC": 8,
+    "I-THREAT": 8
   }
 }

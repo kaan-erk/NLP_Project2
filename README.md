@@ -44,14 +44,14 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 ## 📊 3. Experimental Benchmark Results
 
-Evaluated on 480 independent test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
+Evaluated on 420 independent test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **BiLSTM-CRF (PyTorch Deep Sequence + Constrained)**| **0.6740** | 0.6532 | **0.6962** | **98.16%** | 93.00 s |
-| **Hidden Markov Model (HMM)** | **0.6221** | 0.5799 | 0.6709 | 97.66% | 0.07 s |
-| **Linear-Chain CRF (Feature-based)** | **0.6214** | **0.6871** | 0.5671 | 98.08% | 10.00 s |
-| **Logistic Regression (Token Baseline + Class Weights)** | **0.4485** | 0.3275 | **0.7114** | 94.11% | 4.37 s |
+| **BiLSTM-CRF (PyTorch Deep Sequence + Continuation Prior)**| **0.6659** | 0.6275 | 0.7093 | **98.02%** | 96.54 s |
+| **Linear-Chain CRF (Feature-based)** | 0.6216 | **0.6745** | 0.5764 | **98.02%** | 9.63 s |
+| **Hidden Markov Model (HMM)** | 0.6091 | 0.5699 | 0.6541 | 97.54% | 0.07 s |
+| **Logistic Regression (Token Baseline + Class Weights)** | 0.4356 | 0.3138 | **0.7118** | 93.69% | 4.03 s |
 
 ### Key Experimental Insights:
 - **Hardcoded CRF Structural Constraints (-10000.0 Transition Shield):** Injected an immutable masking matrix into `BiLSTM_CRF` locking impossible transitions (`O -> I-X`, `B-THREAT -> I-OBSCENE`, `<START> -> I-X`) permanently to `-10000.0`. The model's raw inference output is physically incapable of producing an invalid BIO sequence.

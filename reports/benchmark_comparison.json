@@ -1,34 +1,34 @@
 [
   {
-    "Model": "BiLSTM-CRF (PyTorch Deep Sequence)",
-    "Strict Span F1": 0.674,
-    "Precision": 0.6532,
-    "Recall": 0.6962,
-    "Token Accuracy": 0.9816,
-    "Training Time (s)": 93.0
+    "Model": "Logistic Regression (Token Baseline)",
+    "Strict Span F1": 0.4356,
+    "Precision": 0.3138,
+    "Recall": 0.7118,
+    "Token Accuracy": 0.9369,
+    "Training Time (s)": 4.03
   },
   {
-    "Model": "Hidden Markov Model (HMM)",
-    "Strict Span F1": 0.6221,
-    "Precision": 0.5799,
-    "Recall": 0.6709,
-    "Token Accuracy": 0.9766,
+    "Model": "HMM (Hidden Markov Model)",
+    "Strict Span F1": 0.6091,
+    "Precision": 0.5699,
+    "Recall": 0.6541,
+    "Token Accuracy": 0.9754,
     "Training Time (s)": 0.07
   },
   {
     "Model": "Linear-Chain CRF",
-    "Strict Span F1": 0.6214,
-    "Precision": 0.6871,
-    "Recall": 0.5671,
-    "Token Accuracy": 0.9808,
-    "Training Time (s)": 10.0
+    "Strict Span F1": 0.6216,
+    "Precision": 0.6745,
+    "Recall": 0.5764,
+    "Token Accuracy": 0.9802,
+    "Training Time (s)": 9.63
   },
   {
-    "Model": "Logistic Regression (Token Baseline)",
-    "Strict Span F1": 0.4485,
-    "Precision": 0.3275,
-    "Recall": 0.7114,
-    "Token Accuracy": 0.9411,
-    "Training Time (s)": 4.37
+    "Model": "BiLSTM-CRF (PyTorch Deep Sequence)",
+    "Strict Span F1": 0.6659,
+    "Precision": 0.6275,
+    "Recall": 0.7093,
+    "Token Accuracy": 0.9802,
+    "Training Time (s)": 96.54
   }
 ]

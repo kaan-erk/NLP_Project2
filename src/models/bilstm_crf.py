@@ -98,6 +98,14 @@ class BiLSTM_CRF(nn.Module):
             # we didn't accidentally block it in another loop.
 
         
+        # Structural sequence continuation prior: B-X -> I-X and I-X -> I-X
+        for cat in ["INSULT", "IDENTITY_ATTACK", "OBSCENE", "THREAT", "OTHER_TOXIC"]:
+            b_ix = self.tag_to_ix.get(f"B-{cat}")
+            i_ix = self.tag_to_ix.get(f"I-{cat}")
+            if b_ix is not None and i_ix is not None:
+                self.transitions.data[i_ix, b_ix] += 2.0
+                self.transitions.data[i_ix, i_ix] += 1.5
+
         self.register_buffer("illegal_mask", illegal_mask)
         self.transitions.data.masked_fill_(illegal_mask, -10000.0)
 
@@ -202,13 +210,17 @@ class BiLSTM_CRF(nn.Module):
             
         return crf_loss
 
-    def decode(self, sentences: torch.Tensor, mask: torch.Tensor) -> List[List[str]]:
+    def decode(self, sentences: torch.Tensor, mask: torch.Tensor, o_margin: float = 0.65) -> List[List[str]]:
         """
         Viterbi decoding to extract the highest-scoring sequence of tags.
         Physically incapable of producing invalid BIO sequences due to hardcoded -10000 constraints.
         """
         trans = self._get_transitions()
         emissions = self._get_lstm_emissions(sentences)
+        if o_margin > 0.0:
+            o_idx = self.tag_to_ix.get("O")
+            if o_idx is not None:
+                emissions[:, :, o_idx] -= o_margin
         best_tag_sequences = []
 
         for b in range(sentences.size(0)):

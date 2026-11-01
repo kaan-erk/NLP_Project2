@@ -115,39 +115,107 @@ def get_token_aspect(token_lower: str, doc_category: str) -> str:
         return "INSULT"
     return doc_category
 
+
+MULTI_WORD_PATTERNS = {
+    "THREAT": [
+        "kill you", "kill yourself", "kill them", "die in a fire", "die in a", "burn in hell", "burn you",
+        "rot in hell", "hang yourself", "blow your head off", "blow your", "shoot you", "shoot them",
+        "beat you", "beat the shit out of", "beat the shit", "slit your throat", "slit your", "stab you",
+        "drop dead", "break your neck", "end your life", "choke you", "strangle you"
+    ],
+    "OBSCENE": [
+        "fuck you", "fuck off", "shut the fuck up", "shut up", "piece of shit", "eat shit", "full of shit",
+        "son of a bitch", "dumb as fuck", "get the fuck out", "get the fuck", "mother fucker", "holy shit",
+        "dip shit", "little bitch", "bitch ass", "kiss my ass"
+    ],
+    "IDENTITY_ATTACK": [
+        "left wing nut", "left wing", "right wing nut", "right wing", "white trash", "dirty jew",
+        "dirty arab", "fucking gay", "retarded idiot", "islamic terrorist", "illegal immigrant",
+        "go back to your country"
+    ],
+    "OTHER_TOXIC": [
+        "waste of space", "waste of oxygen", "waste of time", "waste of breath", "scum of the earth",
+        "troll account", "toxic behavior", "complete garbage", "brain dead", "mentally ill",
+        "sick in the head", "get a life", "seek help", "delusional fool"
+    ],
+    "INSULT": [
+        "arrogant jerk", "ignorant fool", "stupid clown", "big sissy", "disgusting rat",
+        "lying cheat", "corrupt pig", "pathetic loser", "total fraud", "useless coward"
+    ]
+}
+
 def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
-    bio_tags = []
-    in_span = False
-    curr_cat = category
+    bio_tags = ["O"] * len(doc)
+    doc_text_lower = doc.text.lower()
     
-    for token in doc:
-        token_len = len(token.text)
-        if token_len == 0 or token.text.isspace():
-            bio_tags.append("O")
-            in_span = False
-            continue
+    if category != "NEUTRAL_O" and positions:
+        # Step 1: Detect multi-word phrase patterns to generate natural B- and I- sequence continuations
+        matched_tokens = set()
+        for cat, phrases in MULTI_WORD_PATTERNS.items():
+            for phrase in phrases:
+                start_char = 0
+                while True:
+                    found_idx = doc_text_lower.find(phrase, start_char)
+                    if found_idx == -1:
+                        break
+                    phrase_end = found_idx + len(phrase)
+                    phrase_char_indices = set(range(found_idx, phrase_end))
+                    
+                    # If this multi-word phrase intersects with toxic annotations or category matches
+                    if phrase_char_indices.intersection(positions) or category == cat:
+                        # Find tokens overlapping with this phrase
+                        phrase_tokens = []
+                        for t_idx, token in enumerate(doc):
+                            t_len = len(token.text)
+                            if t_len > 0 and not token.text.isspace():
+                                t_chars = set(range(token.idx, token.idx + t_len))
+                                if t_chars.intersection(phrase_char_indices):
+                                    phrase_tokens.append(t_idx)
+                        
+                        if phrase_tokens:
+                            first = phrase_tokens[0]
+                            bio_tags[first] = f"B-{cat}"
+                            matched_tokens.add(first)
+                            for rest in phrase_tokens[1:]:
+                                bio_tags[rest] = f"I-{cat}"
+                                matched_tokens.add(rest)
+                                
+                    start_char = found_idx + len(phrase)
+
+        # Step 2: For remaining tokens, align single-word toxic positions
+        in_span = False
+        curr_cat = category
+        for t_idx, token in enumerate(doc):
+            if t_idx in matched_tokens:
+                in_span = False
+                continue
+                
+            token_len = len(token.text)
+            if token_len == 0 or token.text.isspace():
+                bio_tags[t_idx] = "O"
+                in_span = False
+                continue
+                
+            token_chars = set(range(token.idx, token.idx + token_len))
+            overlap = token_chars.intersection(positions)
+            is_token_toxic = (len(overlap) >= token_len * 0.5) if token_len > 1 else (len(overlap) > 0)
             
-        token_chars = set(range(token.idx, token.idx + token_len))
-        overlap = token_chars.intersection(positions)
-        
-        is_token_toxic = (len(overlap) >= token_len * 0.5) if token_len > 1 else (len(overlap) > 0)
-        
-        if is_token_toxic and positions and category != "NEUTRAL_O":
-            tok_cat = get_token_aspect(token.text.lower(), category)
-            if not in_span:
-                curr_cat = tok_cat
-                bio_tags.append(f"B-{curr_cat}")
-                in_span = True
-            else:
-                if tok_cat != curr_cat and tok_cat in {"THREAT", "OBSCENE", "IDENTITY_ATTACK", "INSULT"}:
+            if is_token_toxic:
+                tok_cat = get_token_aspect(token.text.lower(), category)
+                if not in_span:
                     curr_cat = tok_cat
-                    bio_tags.append(f"B-{curr_cat}")
+                    bio_tags[t_idx] = f"B-{curr_cat}"
+                    in_span = True
                 else:
-                    bio_tags.append(f"I-{curr_cat}")
-        else:
-            bio_tags.append("O")
-            in_span = False
-            
+                    if tok_cat != curr_cat and tok_cat in {"THREAT", "OBSCENE", "IDENTITY_ATTACK", "INSULT"}:
+                        curr_cat = tok_cat
+                        bio_tags[t_idx] = f"B-{curr_cat}"
+                    else:
+                        bio_tags[t_idx] = f"I-{curr_cat}"
+            else:
+                bio_tags[t_idx] = "O"
+                in_span = False
+                
     return bio_tags
 
 def load_and_group_raw(file_path: Path) -> Dict[str, List[Dict[str, Any]]]:
