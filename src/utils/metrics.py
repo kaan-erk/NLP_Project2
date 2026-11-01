@@ -107,7 +107,7 @@ def plot_confusion_matrix(
     y_pred: List[List[str]], 
     title: str = "Token-Level Confusion Matrix",
     filename: str = "confusion_matrix.png",
-    normalize: bool = True,
+    normalize: bool = False,
     toxic_only: bool = False
 ):
     """
