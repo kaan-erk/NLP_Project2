@@ -210,7 +210,7 @@ class BiLSTM_CRF(nn.Module):
             
         return crf_loss
 
-    def decode(self, sentences: torch.Tensor, mask: torch.Tensor, o_margin: float = 0.65) -> List[List[str]]:
+    def decode(self, sentences: torch.Tensor, mask: torch.Tensor, o_margin: float = 0.90) -> List[List[str]]:
         """
         Viterbi decoding to extract the highest-scoring sequence of tags.
         Physically incapable of producing invalid BIO sequences due to hardcoded -10000 constraints.
