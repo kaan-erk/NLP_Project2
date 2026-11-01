@@ -224,14 +224,18 @@ def train_and_eval_bilstm_crf(
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
                 
-                    # --- NEW GRADIENT FREEZING BLOCK ---
+                # --- NEW GRADIENT FREEZING BLOCK ---
                 with torch.no_grad():
                     # Force gradients of illegal transitions to 0 so the optimizer ignores them
-                    model.transitions.grad.masked_fill_(model.illegal_mask, 0.0)
-                    # Re-apply the -10000 penalty just to be absolutely certain it doesn't drift                    model.transitions.data.masked_fill_(model.illegal_mask, -10000.0)
-                    # -----------------------------------
-                    
-                    optimizer.step()
+                    if model.transitions.grad is not None:
+                        model.transitions.grad.masked_fill_(model.illegal_mask, 0.0)
+
+                optimizer.step()
+
+                with torch.no_grad():
+                    # Re-apply the -10000 penalty just to be absolutely certain it doesn't drift
+                    model.transitions.data.masked_fill_(model.illegal_mask, -10000.0)
+                # -----------------------------------
                 
                 total_loss += loss.item()
                 
