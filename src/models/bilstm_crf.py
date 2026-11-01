@@ -79,13 +79,11 @@ class BiLSTM_CRF(nn.Module):
             illegal_mask[self.pad_tag_idx, :] = True
             illegal_mask[:, self.pad_tag_idx] = True
             
-        # 4. BIO Structural Constraints:
-        # - Cannot transition to I-X from O
-        # - Cannot transition to I-X from B-Y (where Y != X)
-        # - Cannot transition to I-X from I-Y (where Y != X)
-        # - Cannot transition to I-X from <START>
+# 4. BIO Structural Constraints:
         for to_idx in range(self.num_tags):
             to_tag = self.ix_to_tag[to_idx]
+            
+            # Constraint A: I-X can ONLY follow B-X or I-X
             if to_tag.startswith("I-"):
                 to_cat = to_tag[2:]
                 allowed_from = {f"B-{to_cat}", f"I-{to_cat}"}
@@ -93,7 +91,13 @@ class BiLSTM_CRF(nn.Module):
                     from_tag = self.ix_to_tag[from_idx]
                     if from_tag not in allowed_from:
                         illegal_mask[to_idx, from_idx] = True
+                        
+            # Constraint B: B-X and I-X are allowed to transition to 'O' or '<STOP>'
+            # (Your previous logic implicitly blocked this by not defining it)
+            # We don't need to add a mask for this, we just need to make sure 
+            # we didn't accidentally block it in another loop.
 
+        
         self.register_buffer("illegal_mask", illegal_mask)
         self.transitions.data.masked_fill_(illegal_mask, -10000.0)
 
