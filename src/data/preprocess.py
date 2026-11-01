@@ -252,12 +252,12 @@ def main():
         print(f"  {k:<20}: {len(v)}")
         
     # Balanced Sampling:
-    # Train: 400 per class (400 * 5 toxic = 2,000 toxic + 400 neutral = 2,400)
-    # Val: 50 per class (50 * 5 toxic = 250 toxic + 50 neutral = 300)
-    # Test: 40 per class (40 * 5 toxic = 200 toxic + 40 neutral = 240)
-    train_balanced_raw = create_balanced_split(grouped_train, target_per_class=400, seed=42)
-    val_balanced_raw = create_balanced_split(grouped_train, target_per_class=50, seed=123)
-    test_balanced_raw = create_balanced_split(grouped_test, target_per_class=40, seed=999)
+    # Train: 1400 per class (1400 * 5 toxic = 7,000 toxic + 1400 neutral = 8,400)
+    # Val: 150 per class (150 * 5 toxic = 750 toxic + 150 neutral = 900)
+    # Test: 80 per class (80 * 5 toxic = 400 toxic + 80 neutral = 480)
+    train_balanced_raw = create_balanced_split(grouped_train, target_per_class=1400, seed=42)
+    val_balanced_raw = create_balanced_split(grouped_train, target_per_class=150, seed=123)
+    test_balanced_raw = create_balanced_split(grouped_test, target_per_class=80, seed=999)
     
     logging.info(f"Processing and aligning {len(train_balanced_raw)} train samples...")
     train_samples = process_and_align_samples(train_balanced_raw, nlp)

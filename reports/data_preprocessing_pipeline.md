@@ -56,40 +56,40 @@ In raw social media comments, almost every severe comment labeled as `threat` or
 To guarantee semantic diversity, we enforce an **Inverse-Frequency Priority Rule**:
 $$\text{Priority: } \text{THREAT} > \text{IDENTITY\_ATTACK} > \text{OBSCENE} > \text{OTHER\_TOXIC} > \text{INSULT}$$
 
-### Step 5: Stratified Balanced Resampling
-To eliminate extreme class imbalance, we implemented exact stratified resampling across all 5 toxic categories, pairing them with an equal portion of clean neutral comments:
-- **Train Split:** Exactly 400 sentences per toxic category (2,000 toxic sentences) + 400 clean neutral sentences = 2,400 sentences total.
-- **Validation Split:** Exactly 50 sentences per category = 300 sentences total.
-- **Test Split:** Exactly 40 sentences per category = 240 sentences total.
+### Step 5: Scaled Stratified Balanced Resampling (8,400 Scale)
+To eliminate extreme class imbalance while providing sufficient data scale for sequence models, we implemented scaled stratified resampling across all 5 toxic categories, pairing them with an equal portion of clean neutral comments:
+- **Train Split:** Exactly 1,400 sentences per toxic category (7,000 toxic sentences) + 1,400 clean neutral sentences = **8,400 sentences total**.
+- **Validation Split:** Exactly 150 sentences per category (750 toxic + 150 neutral) = **900 sentences total**.
+- **Test Split:** Exactly 80 sentences per category (400 toxic + 80 neutral) = **480 sentences total**.
 
 ---
 
-## 4. Balanced Dataset Statistics
+## 4. Balanced Dataset Statistics (8,400 Scale)
 
 ### Dataset Splits
-- **Training Set (`train.jsonl`):** 2,400 samples
-- **Validation Set (`val.jsonl`):** 300 samples
-- **Test Set (`test.jsonl`):** 240 samples
-- **Vocabulary Size:** 4,717 unique words ($N_{\min}=2$).
+- **Training Set (`train.jsonl`):** 8,400 samples
+- **Validation Set (`val.jsonl`):** 900 samples
+- **Test Set (`test.jsonl`):** 480 samples
+- **Vocabulary Size:** 9,902 unique words ($N_{\min}=2$).
 
 ### Balanced Tag Distribution
 
 | Tag | Train Token Count | Test Token Count | Ratio Balance |
 | :--- | :--- | :--- | :--- |
-| **`B-OBSCENE`** | 473 | 48 | Balanced (~20%) |
-| **`B-IDENTITY_ATTACK`** | 473 | 45 | Balanced (~20%) |
-| **`B-INSULT`** | 455 | 44 | Balanced (~20%) |
-| **`B-THREAT`** | 453 | 45 | Balanced (~20%) |
-| **`B-OTHER_TOXIC`** | 449 | 46 | Balanced (~20%) |
-| `I-THREAT` | 235 | 10 | Context-dependent |
-| `I-IDENTITY_ATTACK`| 141 | 15 | Context-dependent |
-| `I-OBSCENE` | 84 | 6 | Context-dependent |
-| `I-OTHER_TOXIC` | 65 | 6 | Context-dependent |
-| `I-INSULT` | 28 | 3 | Context-dependent |
-| `O` (Neutral Tokens)| 95,507 | 9,305 | Natural sequence surplus |
+| **`B-IDENTITY_ATTACK`** | 1,646 | 93 | Balanced (~20%) |
+| **`B-OBSCENE`** | 1,636 | 93 | Balanced (~20%) |
+| **`B-THREAT`** | 1,588 | 93 | Balanced (~20%) |
+| **`B-OTHER_TOXIC`** | 1,563 | 89 | Balanced (~20%) |
+| **`B-INSULT`** | 1,544 | 85 | Balanced (~20%) |
+| `I-THREAT` | 889 | 14 | Context-dependent |
+| `I-IDENTITY_ATTACK`| 534 | 49 | Context-dependent |
+| `I-OBSCENE` | 364 | 16 | Context-dependent |
+| `I-OTHER_TOXIC` | 242 | 26 | Context-dependent |
+| `I-INSULT` | 97 | 7 | Context-dependent |
+| `O` (Neutral Tokens)| 338,878 | 19,163 | Natural sequence surplus |
 
 > [!NOTE]
-> In natural sequence labeling tasks, `O` represents the surrounding non-toxic sentence syntax (grammatical background) and will naturally exceed entity tokens in quantity. However, the 5 toxic entity categories now possess strictly equal, balanced representations (~450-473 `B-` tokens each in training, and ~44-48 `B-` tokens each in testing), completely eliminating minority starvation.
+> In natural sequence labeling tasks, `O` represents the surrounding non-toxic sentence syntax (grammatical background) and will naturally exceed entity tokens in quantity. However, all 5 toxic entity categories possess strictly equal, balanced representations (~1,550-1,650 `B-` tokens each in training, and ~85-93 `B-` tokens each in testing), completely eliminating minority starvation.
 
 ---
 

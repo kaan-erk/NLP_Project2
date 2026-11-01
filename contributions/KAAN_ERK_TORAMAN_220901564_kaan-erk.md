@@ -41,15 +41,15 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
   $$\text{Priority: } \text{THREAT} > \text{IDENTITY\_ATTACK} > \text{OBSCENE} > \text{OTHER\_TOXIC} > \text{INSULT}$$
   ensuring that critical minority toxicity signals are preserved.
 
-### E. Stratified Multi-Class Balanced Resampling Architecture
-- To eliminate extreme class collapse, implemented an exact stratified resampling engine:
-  - **Train Split (`data/processed/train.jsonl`):** Exactly 400 sentences per toxic category (2,000 toxic sentences) + 400 neutral sentences = 2,400 sentences total.
-  - **Val Split (`data/processed/val.jsonl`):** Exactly 50 sentences per category = 300 sentences total.
-  - **Test Split (`data/processed/test.jsonl`):** Exactly 40 sentences per category = 240 sentences total.
-- Achieved equalized entity representation across all 5 classes (~450 `B-` tokens each in train, ~45 each in test), allowing models to learn features for all toxic aspects equitably.
+### E. Scaled Stratified Multi-Class Balanced Resampling Architecture (8,400 Scale)
+- To eliminate extreme class collapse while providing sufficient statistical volume for sequence models, implemented an exact stratified resampling engine:
+  - **Train Split (`data/processed/train.jsonl`):** Exactly 1,400 sentences per toxic category (7,000 toxic sentences) + 1,400 neutral sentences = **8,400 sentences total**.
+  - **Val Split (`data/processed/val.jsonl`):** Exactly 150 sentences per category (750 toxic + 150 neutral) = **900 sentences total**.
+  - **Test Split (`data/processed/test.jsonl`):** Exactly 80 sentences per category (400 toxic + 80 neutral) = **480 sentences total**.
+- Achieved equalized entity representation across all 5 classes (~1,550-1,650 `B-` tokens each in train, ~85-93 each in test), allowing sequence models to learn rich contextual representations for all abusive aspects equitably.
 
 ### F. Split Generation, Vocabulary & Statistics
-- Built frequency-filtered word vocabulary (`data/processed/vocab.json`, 4,717 tokens, $N_{\min}=2$) with `<PAD>` and `<UNK>` tokens.
+- Built frequency-filtered word vocabulary (`data/processed/vocab.json`, 9,902 tokens, $N_{\min}=2$) with `<PAD>` and `<UNK>` tokens.
 - Generated `data/processed/tag_to_ix.json` (14 total symbols including BIO and sequence boundaries) and computed distribution reports (`data/processed/dataset_summary.json`).
 
 ### G. PyTorch Data Pipeline (`src/data/dataset.py`)

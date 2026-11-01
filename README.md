@@ -31,12 +31,12 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 | Tag | Semantic Description | Example Tokens | Train Count | Test Count |
 | :--- | :--- | :--- | :---: | :---: |
-| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 473 / 84 | 48 / 6 |
-| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 473 / 141 | 45 / 15 |
-| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 455 / 28 | 44 / 3 |
-| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 453 / 235 | 45 / 10 |
-| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 449 / 65 | 46 / 6 |
-| `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` | 95,507 | 9,305 |
+| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 1,646 / 534 | 93 / 49 |
+| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 1,636 / 364 | 93 / 16 |
+| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 1,588 / 889 | 93 / 14 |
+| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 1,563 / 242 | 89 / 26 |
+| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 1,544 / 97 | 85 / 7 |
+| `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` | 338,878 | 19,163 |
 
 *Special Sequence Model Tokens:* `<START>`, `<STOP>`, `<PAD>`.
 
@@ -44,19 +44,19 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 ## 📊 3. Experimental Benchmark Results
 
-Evaluated on 240 independent balanced test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
+Evaluated on 480 independent balanced test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Logistic Regression (Token Baseline)** | **0.0945** | 0.0617 | **0.2018** | 86.45% | 6.85 s |
-| **Hidden Markov Model (HMM)** | **0.1337** | 0.1983 | 0.1009 | 96.68% | 0.05 s |
-| **Linear-Chain CRF (Feature-based)** | **0.1547** | 0.2090 | 0.1228 | 97.04% | 4.66 s |
-| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.1628** | **0.2414** | 0.1228 | **97.27%** | 63.50 s |
+| **Logistic Regression (Token Baseline)** | **0.0918** | 0.0588 | **0.2097** | 83.79% | 18.31 s |
+| **Linear-Chain CRF (Feature-based)** | **0.1369** | 0.2100 | 0.1015 | 96.99% | 24.85 s |
+| **Hidden Markov Model (HMM)** | **0.1491** | 0.2054 | 0.1170 | 96.76% | 0.17 s |
+| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.1678** | **0.2226** | **0.1347** | **97.17%** | 239.02 s |
 
 ### Key Experimental Insights:
-- **Independent vs Sequential Modeling:** Logistic Regression achieves only **9.45% Span F1** because it classifies tokens in isolation without structural awareness, creating broken entity spans. HMM enforces grammatical transition probabilities via Viterbi decoding, boosting F1 to **13.37%**.
-- **Discriminative Features:** Linear-Chain CRF utilizes orthographic, casing, POS tags, and token context windows, pushing Span F1 to **15.47%**.
-- **Deep Contextual Sequences:** PyTorch BiLSTM-CRF achieves the highest benchmark precision (**24.14%**) and peak Strict Span F1 (**16.28%**).
+- **Independent vs Sequential Modeling:** Logistic Regression achieves only **9.18% Span F1** because it classifies tokens in isolation without structural awareness, creating broken entity spans and high false positives. HMM enforces grammatical transition probabilities via Viterbi decoding, boosting F1 to **14.91%**.
+- **Discriminative Sequence Features:** Linear-Chain CRF utilizes orthographic, casing, POS tags, and token context windows, obtaining **13.69% Span F1** with 21.00% precision.
+- **Deep Contextual Sequences:** PyTorch BiLSTM-CRF achieves the peak Strict Span F1 (**16.78%**), highest precision (**22.26%**), and peak recall (**13.47%**).
 - **Diagnostic Heatmaps:**
   - **Transition Matrices:** [`reports/figures/bilstm_crf_transitions.png`](reports/figures/bilstm_crf_transitions.png), [`reports/figures/crf_transitions.png`](reports/figures/crf_transitions.png), [`reports/figures/hmm_transitions.png`](reports/figures/hmm_transitions.png).
   - **Full Confusion Matrices:** [`reports/figures/confusion_matrix_logreg.png`](reports/figures/confusion_matrix_logreg.png), [`reports/figures/confusion_matrix_hmm.png`](reports/figures/confusion_matrix_hmm.png), [`reports/figures/confusion_matrix_crf.png`](reports/figures/confusion_matrix_crf.png), [`reports/figures/confusion_matrix_bilstm_crf.png`](reports/figures/confusion_matrix_bilstm_crf.png).
@@ -74,10 +74,10 @@ NLP_Project2/
 │   │   ├── toxic_spans_train_raw.jsonl   (10,006 raw comments with character offsets)
 │   │   └── toxic_spans_test_raw.jsonl    (1,000 raw comments)
 │   └── processed/                     # Cleaned, tokenized, and balanced BIO splits
-│       ├── train.jsonl                   (2,400 balanced sequences: 400 per class + 400 neutral)
-│       ├── val.jsonl                     (300 validation sequences)
-│       ├── test.jsonl                    (240 test sequences)
-│       ├── vocab.json                    (Word vocabulary with min_freq=2, 4,717 tokens)
+│       ├── train.jsonl                   (8,400 balanced sequences: 1,400 per class + 1,400 neutral)
+│       ├── val.jsonl                     (900 validation sequences)
+│       ├── test.jsonl                    (480 test sequences)
+│       ├── vocab.json                    (Word vocabulary with min_freq=2, 9,902 tokens)
 │       ├── tag_to_ix.json                (Mapping of 11 BIO tags + special tokens)
 │       └── dataset_summary.json          (Token statistics and distribution)
 │

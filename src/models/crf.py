@@ -45,7 +45,11 @@ def word2features(sent_tokens: List[str], sent_pos: List[str], i: int) -> Dict[s
             "prev_is_title": prev_raw.istitle(),
             "prev_is_upper": prev_raw.isupper(),
             "prev_postag": prev_pos,
+            "prev_plus_curr": f"{prev_word.lower()}_{word.lower()}",
         })
+        if i > 1:
+            prev2_word = clean_feat_val(sent_tokens[i - 2])
+            features["prev2_word_lower"] = prev2_word.lower()
     else:
         features["BOS"] = True
 
@@ -59,7 +63,11 @@ def word2features(sent_tokens: List[str], sent_pos: List[str], i: int) -> Dict[s
             "next_is_title": next_raw.istitle(),
             "next_is_upper": next_raw.isupper(),
             "next_postag": next_pos,
+            "curr_plus_next": f"{word.lower()}_{next_word.lower()}",
         })
+        if i < len(sent_tokens) - 2:
+            next2_word = clean_feat_val(sent_tokens[i + 2])
+            features["next2_word_lower"] = next2_word.lower()
     else:
         features["EOS"] = True
 
