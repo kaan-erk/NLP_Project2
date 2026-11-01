@@ -1,0 +1,26 @@
+# ==============================================================================
+# Multi-Aspect Token-Level Toxic Span Extraction & Sequence Labeling
+# Core Project Dependencies & Requirements
+# ==============================================================================
+
+# Deep Learning & Sequence Modeling
+torch>=2.0.0
+
+# Natural Language Processing & Linguistic Tokenization
+spacy>=3.7.0
+seqeval>=1.2.2
+
+# Classical Machine Learning & Conditional Random Fields
+scikit-learn>=1.3.0
+sklearn-crfsuite>=0.3.6
+python-crfsuite>=0.9.9
+
+# Data Ingestion & Manipulation
+datasets>=2.14.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Diagnostic Visualizations & Reporting
+matplotlib>=3.7.0
+seaborn>=0.12.0
+tqdm>=4.65.0
