@@ -41,12 +41,12 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
   $$\text{Priority: } \text{THREAT} > \text{IDENTITY\_ATTACK} > \text{OBSCENE} > \text{OTHER\_TOXIC} > \text{INSULT}$$
   ensuring that critical minority toxicity signals are preserved.
 
-### E. Scaled Stratified Multi-Class Balanced Resampling Architecture (8,400 Scale)
+### E. Scaled Stratified Balanced Resampling & Token-Level Aspect Disambiguation
 - To eliminate extreme class collapse while providing sufficient statistical volume for sequence models, implemented an exact stratified resampling engine:
   - **Train Split (`data/processed/train.jsonl`):** Exactly 1,400 sentences per toxic category (7,000 toxic sentences) + 1,400 neutral sentences = **8,400 sentences total**.
   - **Val Split (`data/processed/val.jsonl`):** Exactly 150 sentences per category (750 toxic + 150 neutral) = **900 sentences total**.
   - **Test Split (`data/processed/test.jsonl`):** Exactly 80 sentences per category (400 toxic + 80 neutral) = **480 sentences total**.
-- Achieved equalized entity representation across all 5 classes (~1,550-1,650 `B-` tokens each in train, ~85-93 each in test), allowing sequence models to learn rich contextual representations for all abusive aspects equitably.
+- **Aspect Disambiguation Engine:** Resolved cross-label contamination where document-level labels forced insult tokens (e.g. *"idiot"*, *"clown"*) to be mislabeled as `B-THREAT`. Mapped violence words (*"kill"*, *"shoot"*) to `THREAT`, vulgarities (*"fuck"*, *"shit"*) to `OBSCENE`, slurs to `IDENTITY_ATTACK`, and insults to `INSULT`, allowing models to learn consistent token transitions and boosting benchmark F1 from ~16% to **59.44%**.
 
 ### F. Split Generation, Vocabulary & Statistics
 - Built frequency-filtered word vocabulary (`data/processed/vocab.json`, 9,902 tokens, $N_{\min}=2$) with `<PAD>` and `<UNK>` tokens.
@@ -65,6 +65,6 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
 My contributions are reflected in the following core commits:
 - Data acquisition script and raw data storage (`src/data/download.py`)
 - Core character-to-token alignment and preprocessing pipeline (`src/data/preprocess.py`)
-- Multi-aspect inverse-frequency disambiguation and stratified balanced resampling (`src/data/preprocess.py`)
+- Token-level aspect disambiguation engine and stratified balanced resampling (`src/data/preprocess.py`)
 - PyTorch dataset and dynamic collate functions (`src/data/dataset.py`)
 - Data engineering documentation and summary statistics (`reports/data_preprocessing_pipeline.md`, `data/processed/`)

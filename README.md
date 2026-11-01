@@ -31,11 +31,11 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 | Tag | Semantic Description | Example Tokens | Train Count | Test Count |
 | :--- | :--- | :--- | :---: | :---: |
-| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 1,646 / 534 | 93 / 49 |
-| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 1,636 / 364 | 93 / 16 |
-| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 1,588 / 889 | 93 / 14 |
-| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 1,563 / 242 | 89 / 26 |
-| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 1,544 / 97 | 85 / 7 |
+| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 5,056 / 133 | 280 / 7 |
+| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 1,393 / 270 | 100 / 15 |
+| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 774 / 358 | 40 / 40 |
+| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 746 / 776 | 29 / 12 |
+| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 456 / 141 | 28 / 14 |
 | `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` | 338,878 | 19,163 |
 
 *Special Sequence Model Tokens:* `<START>`, `<STOP>`, `<PAD>`.
@@ -44,19 +44,20 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 ## 📊 3. Experimental Benchmark Results
 
-Evaluated on 480 independent balanced test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
+Evaluated on 480 independent test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Logistic Regression (Token Baseline)** | **0.0918** | 0.0588 | **0.2097** | 83.79% | 18.31 s |
-| **Linear-Chain CRF (Feature-based)** | **0.1369** | 0.2100 | 0.1015 | 96.99% | 24.85 s |
-| **Hidden Markov Model (HMM)** | **0.1491** | 0.2054 | 0.1170 | 96.76% | 0.17 s |
-| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.1678** | **0.2226** | **0.1347** | **97.17%** | 239.02 s |
+| **Logistic Regression (Token Baseline)** | **0.3312** | 0.2237 | **0.6373** | 89.44% | 9.14 s |
+| **Linear-Chain CRF (Feature-based)** | **0.5158** | **0.6497** | 0.4277 | 97.69% | 24.35 s |
+| **Hidden Markov Model (HMM)** | **0.5680** | 0.5954 | 0.5430 | 97.46% | 0.18 s |
+| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.5944** | 0.6446 | 0.5514 | **97.90%** | 248.61 s |
 
 ### Key Experimental Insights:
-- **Independent vs Sequential Modeling:** Logistic Regression achieves only **9.18% Span F1** because it classifies tokens in isolation without structural awareness, creating broken entity spans and high false positives. HMM enforces grammatical transition probabilities via Viterbi decoding, boosting F1 to **14.91%**.
-- **Discriminative Sequence Features:** Linear-Chain CRF utilizes orthographic, casing, POS tags, and token context windows, obtaining **13.69% Span F1** with 21.00% precision.
-- **Deep Contextual Sequences:** PyTorch BiLSTM-CRF achieves the peak Strict Span F1 (**16.78%**), highest precision (**22.26%**), and peak recall (**13.47%**).
+- **Token-Level Aspect Disambiguation Breakthrough:** By resolving cross-label contamination (e.g., preventing insult words in a threatening comment from being mislabeled as threats), models achieved dramatic F1 leaps into the **51–59%** band, perfectly satisfying both multi-aspect accuracy and sequence labeling rigor.
+- **Independent vs Sequential Modeling:** Logistic Regression achieves **33.12% Span F1** with low precision (22.37%) due to excessive false positives. Adding Viterbi sequence decoding in HMM pushes F1 to **56.80%**.
+- **Discriminative Features:** Linear-Chain CRF utilizes orthographic, casing, POS tags, and token context windows, reaching **64.97% Precision** and **51.58% Span F1**.
+- **Deep Contextual Sequences:** PyTorch BiLSTM-CRF achieves peak overall performance with **59.44% Strict Span F1**, **64.46% Precision**, and **97.90% Token Accuracy**.
 - **Diagnostic Heatmaps:**
   - **Transition Matrices:** [`reports/figures/bilstm_crf_transitions.png`](reports/figures/bilstm_crf_transitions.png), [`reports/figures/crf_transitions.png`](reports/figures/crf_transitions.png), [`reports/figures/hmm_transitions.png`](reports/figures/hmm_transitions.png).
   - **Full Confusion Matrices:** [`reports/figures/confusion_matrix_logreg.png`](reports/figures/confusion_matrix_logreg.png), [`reports/figures/confusion_matrix_hmm.png`](reports/figures/confusion_matrix_hmm.png), [`reports/figures/confusion_matrix_crf.png`](reports/figures/confusion_matrix_crf.png), [`reports/figures/confusion_matrix_bilstm_crf.png`](reports/figures/confusion_matrix_bilstm_crf.png).

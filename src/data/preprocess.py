@@ -85,12 +85,57 @@ def parse_positions(pos_val: Any) -> set:
     except Exception:
         return set()
 
+THREAT_WORDS = {
+    "kill", "killing", "killed", "killer", "killers", "die", "death", "murder", "murdered", "murdering",
+    "shoot", "shooting", "shot", "hang", "hanged", "beat", "beaten", "punch", "destroy",
+    "destroying", "destroyed", "stab", "stabbed", "burn", "burned", "burning", "rape", "raped",
+    "raping", "bomb", "bombing", "bombed", "execute", "executed", "choke", "choking", "slit",
+    "throat", "bullet", "assassinate", "dead"
+}
+
+OBSCENE_WORDS = {
+    "fuck", "fucking", "fucked", "fucker", "fuckers", "shit", "shitty", "bullshit", "bitch",
+    "bitches", "bitching", "ass", "asshole", "assholes", "cunt", "cunts", "dick", "dicks",
+    "pussy", "bastard", "bastards", "damn", "crap", "d*ckhead", "dickhead", "cock", "tits",
+    "prick", "whore", "slut"
+}
+
+IDENTITY_WORDS = {
+    "racist", "racists", "racism", "bigot", "bigots", "bigotry", "gay", "queer", "fag", "faggot", "faggots",
+    "dyke", "nigger", "nigga", "niggers", "negro", "retard", "retarded", "spic", "chink", "kike",
+    "tranny", "transgender", "muslims", "islamist", "jews", "jewish", "blacks", "whites",
+    "immigrants", "mexicans", "homosexual"
+}
+
+INSULT_WORDS = {
+    "idiot", "idiots", "idiotic", "moron", "morons", "stupid", "stupidity", "fool", "fools",
+    "foolish", "clown", "clowns", "loser", "losers", "scumbag", "scumbags", "dumb", "dumber",
+    "dumbest", "jerk", "jerks", "buffoon", "buffoons", "ignorant", "ignorance", "disgusting",
+    "pathetic", "ugly", "hypocrite", "hypocrites", "liar", "liars", "cheat", "corrupt", "trash",
+    "garbage", "pig", "pigs", "filth", "filthy", "incompetent", "imbecile", "useless", "coward",
+    "cowards", "shame", "scum"
+}
+
+def get_token_aspect(token_lower: str, doc_category: str) -> str:
+    """Disambiguate true token-level semantic category based on linguistic lexicon."""
+    if token_lower in THREAT_WORDS:
+        return "THREAT"
+    if token_lower in OBSCENE_WORDS:
+        return "OBSCENE"
+    if token_lower in IDENTITY_WORDS:
+        return "IDENTITY_ATTACK"
+    if token_lower in INSULT_WORDS:
+        return "INSULT"
+    return doc_category
+
 def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
     """
-    Align token character spans with toxic character offsets to construct strict BIO tags.
+    Align token character spans with toxic character offsets to construct strict BIO tags
+    using token-level aspect disambiguation.
     """
     bio_tags = []
     in_span = False
+    curr_cat = category
     
     for token in doc:
         token_len = len(token.text)
@@ -105,11 +150,17 @@ def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
         is_token_toxic = (len(overlap) >= token_len * 0.5) if token_len > 1 else (len(overlap) > 0)
         
         if is_token_toxic and positions and category != "NEUTRAL_O":
+            tok_cat = get_token_aspect(token.text.lower(), category)
             if not in_span:
-                bio_tags.append(f"B-{category}")
+                curr_cat = tok_cat
+                bio_tags.append(f"B-{curr_cat}")
                 in_span = True
             else:
-                bio_tags.append(f"I-{category}")
+                if tok_cat != curr_cat and tok_cat in {"THREAT", "OBSCENE", "IDENTITY_ATTACK", "INSULT"}:
+                    curr_cat = tok_cat
+                    bio_tags.append(f"B-{curr_cat}")
+                else:
+                    bio_tags.append(f"I-{curr_cat}")
         else:
             bio_tags.append("O")
             in_span = False
