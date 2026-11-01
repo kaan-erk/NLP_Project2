@@ -121,6 +121,7 @@ NLP_Project2/
 │   └── KAAN_ERK_TORAMAN_220901564_kaan-erk.md # Kaan Erk Toraman contribution report
 │
 ├── train.py                           # Unified training & evaluation CLI runner
+├── requirements.txt                   # Project package dependencies
 ├── LICENSE                            # MIT Open Source License
 └── README.md                          # Comprehensive project documentation
 ```
@@ -140,7 +141,7 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies and download spaCy model
-pip install torch datasets pandas numpy scikit-learn seqeval spacy matplotlib seaborn tqdm sklearn-crfsuite
+pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 ```
 
