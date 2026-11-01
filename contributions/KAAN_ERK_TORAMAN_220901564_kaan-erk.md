@@ -49,7 +49,7 @@ Because the downstream sequence labeling task requires fine-grained 11-class BIO
 - **Aspect Disambiguation Engine:** Resolved cross-label contamination where document-level labels forced insult tokens (e.g. *"idiot"*, *"clown"*) to be mislabeled as `B-THREAT`. Mapped violence words (*"kill"*, *"shoot"*) to `THREAT`, vulgarities (*"fuck"*, *"shit"*) to `OBSCENE`, slurs to `IDENTITY_ATTACK`, and insults to `INSULT`, allowing models to learn consistent token transitions and boosting benchmark F1 from ~16% to **59.44%**.
 
 ### F. Sequence Integrity & BIO Grammar Validation Pipeline (`src/data/validate.py`)
-- Authored a comprehensive automated verification script to audit all 9,780 processed sentences (train, val, test) for BIO compliance before feeding into sequence models.
+- Authored a comprehensive automated verification script to audit all 5,225 processed sentences (train, val, test) for BIO compliance before feeding into sequence models.
 - Verified that every `I-X` tag is strictly preceded by `B-X` or `I-X`, achieving **0 orphaned `I-` tags and 0 illegal transitions** across the entire dataset.
 
 ### G. Split Generation, Vocabulary & Statistics

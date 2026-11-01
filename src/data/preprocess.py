@@ -233,11 +233,11 @@ def create_non_duplicated_splits(
     seed: int = 42
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Creates exactly balanced Train (600), Val (600), and Test (600) splits:
-    - Exactly 100 sentences per class in Test (6 * 100 = 600)
-    - Exactly 100 sentences per class in Val (6 * 100 = 600)
-    - Exactly 100 sentences per class in Train (6 * 100 = 600)
-    - Zero duplicates across all splits.
+    Creates balanced dataset splits:
+    - Exactly 100 sentences per category in Test (6 * 100 = 600 sentences)
+    - Exactly 100 sentences per category in Val (6 * 100 = 600 sentences)
+    - Richly balanced Train set (~4,025 sentences, ~700-800 per toxic category, 400 neutral)
+    - Complete disjointness between train, val, and test.
     """
     random.seed(seed)
     
@@ -251,15 +251,36 @@ def create_non_duplicated_splits(
     val_samples_raw = []
     test_samples_raw = []
     
+    train_multipliers = {
+        "THREAT": 4,
+        "OTHER_TOXIC": 3,
+        "IDENTITY_ATTACK": 1,
+        "OBSCENE": 1,
+        "INSULT": 1,
+        "NEUTRAL_O": 1
+    }
+
+    train_caps = {
+        "INSULT": 800,
+        "NEUTRAL_O": 400,
+        "OBSCENE": 800,
+        "IDENTITY_ATTACK": 800
+    }
+    
     for cat in PRIORITY_CATEGORIES + ["NEUTRAL_O"]:
         pool = list(all_grouped.get(cat, []))
         random.shuffle(pool)
         
-        # Take exactly 100 for Test, 100 for Val, 100 for Train
-        assert len(pool) >= 300, f"Insufficient samples for {cat}: {len(pool)} < 300"
+        # Take exactly 100 for Test, 100 for Val
+        assert len(pool) >= 200, f"Insufficient samples for {cat}: {len(pool)} < 200"
         test_items = pool[:100]
         val_items = pool[100:200]
-        train_items = pool[200:300]
+        train_pool = pool[200:]
+        
+        if cat in train_caps and len(train_pool) > train_caps[cat]:
+            train_pool = train_pool[:train_caps[cat]]
+            
+        mult = train_multipliers.get(cat, 1)
         
         for item in test_items:
             cp = dict(item)
@@ -271,10 +292,11 @@ def create_non_duplicated_splits(
             cp["assigned_category"] = cat
             val_samples_raw.append(cp)
             
-        for item in train_items:
+        for item in train_pool:
             cp = dict(item)
             cp["assigned_category"] = cat
-            train_samples_raw.append(cp)
+            for _ in range(mult):
+                train_samples_raw.append(dict(cp))
             
     random.shuffle(train_samples_raw)
     random.shuffle(val_samples_raw)

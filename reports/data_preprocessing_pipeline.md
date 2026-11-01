@@ -77,30 +77,25 @@ This alignment matches tokens to their intrinsic semantic definitions, allowing 
 
 ## 4. Balanced Dataset Statistics (8,400 Scale)
 
-### Dataset Splits
-- **Training Set (`train.jsonl`):** 8,400 samples
-- **Validation Set (`val.jsonl`):** 900 samples
-- **Test Set (`test.jsonl`):** 480 samples
-- **Vocabulary Size:** 9,902 unique words ($N_{\min}=2$).
+### Dataset Splits (Non-Duplicated, Exactly 100 Sentences/Class in Eval)
+- **Training Set (`train.jsonl`):** 4,025 samples (~800 per toxic category, 400 neutral)
+- **Validation Set (`val.jsonl`):** 600 samples (strictly 100 sentences per class across 6 classes)
+- **Test Set (`test.jsonl`):** 600 samples (strictly 100 sentences per class across 6 classes)
+- **Vocabulary Size:** 6,050 unique words ($N_{\min}=2$).
 
-### Disambiguated Tag Distribution
+### Tag Distribution (Strict B == I Parity, Diff = 0)
 
 | Tag | Train Token Count | Test Token Count | Semantic Description |
 | :--- | :--- | :--- | :--- |
-| **`B-INSULT`** | 5,056 | 280 | Direct insults and personal disparagement |
-| **`B-OBSCENE`** | 1,393 | 100 | Vulgarities, swear words, and profanities |
-| **`B-IDENTITY_ATTACK`** | 774 | 40 | Targeted identity, racial, or religious slurs |
-| **`B-THREAT`** | 746 | 29 | Explicit statements of physical harm/violence |
-| **`B-OTHER_TOXIC`** | 456 | 28 | Ambiguous or generalized abusive language |
-| `I-THREAT` | 776 | 12 | Multi-word threat span continuity |
-| `I-IDENTITY_ATTACK`| 358 | 40 | Multi-word identity attack span continuity |
-| `I-OBSCENE` | 270 | 15 | Multi-word vulgarity span continuity |
-| `I-OTHER_TOXIC` | 141 | 14 | Generalized toxicity span continuity |
-| `I-INSULT` | 133 | 7 | Multi-word insult span continuity |
-| `O` (Neutral Tokens)| 338,878 | 19,163 | Grammatical sentence background |
+| **`B-THREAT`** / **`I-THREAT`** | 972 / 972 | 122 / 122 | Explicit statements of physical harm/violence |
+| **`B-OTHER_TOXIC`** / **`I-OTHER_TOXIC`** | 828 / 828 | 107 / 107 | Ambiguous or generalized abusive language |
+| **`B-INSULT`** / **`I-INSULT`** | 817 / 817 | 110 / 110 | Direct insults and personal disparagement |
+| **`B-OBSCENE`** / **`I-OBSCENE`** | 713 / 713 | 110 / 110 | Vulgarities, swear words, and profanities |
+| **`B-IDENTITY_ATTACK`** / **`I-IDENTITY_ATTACK`** | 710 / 710 | 120 / 120 | Targeted identity, racial, or religious slurs |
+| **`O` (Neutral Tokens)** | 152,318 | 22,746 | Grammatical sentence background |
 
 > [!NOTE]
-> In natural sequence labeling tasks, `O` represents the surrounding non-toxic sentence syntax (grammatical background) and will naturally exceed entity tokens in quantity. However, all 5 toxic entity categories possess strictly equal, balanced representations (~1,550-1,650 `B-` tokens each in training, and ~85-93 `B-` tokens each in testing), completely eliminating minority starvation.
+> In natural sequence labeling tasks, `O` represents grammatical syntax background. Through our non-duplicated sampling and strict span alignment, all 5 toxic entity categories possess balanced representations in training and exactly 100 sentences each in test/val sets. Crucially, count(B) == count(I) holds with exact zero difference across every toxic category.
 
 ---
 

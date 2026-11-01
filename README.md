@@ -9,7 +9,7 @@ An end-to-end Sequence Labeling and Token Classification project implementing **
 * **Downstream Task:** Multi-Aspect Token-Level Rationale & Toxic Span Extraction (Explainable AI / Sequence Labeling)
 * **Dataset:** [SemEval-2021 Task 5 (Toxic Spans)](https://huggingface.co/datasets/heegyu/toxic-spans) + Jigsaw Civil Comments Multi-Attribute Alignments (Stratified Balanced Resampling)
 * **Number of Classes:** **11 Sınıf** (`O`, `B-INSULT`, `I-INSULT`, `B-IDENTITY_ATTACK`, `I-IDENTITY_ATTACK`, `B-OBSCENE`, `I-OBSCENE`, `B-THREAT`, `I-THREAT`, `B-OTHER_TOXIC`, `I-OTHER_TOXIC`)
-* **Difficulty & Non-Saturation:** Standart CoNLL NER gibi doymuş (saturated) değildir. İnsan etiket uzlaşısı %65-70 bandındadır. Bağımsız token sınıflandırıcı (Logistic Regression) yalnızca %9.45 Span F1 alırken, HMM %13.37, CRF %15.47 ve BiLSTM-CRF %16.28 Strict Span F1 alır (kesinlikle %85-90 EM alamaz; model karşılaştırmaları için ideal bir non-saturated kıyaslama sunar).
+* **Difficulty & Non-Saturation:** Standart CoNLL NER gibi doymuş (saturated) değildir. İnsan etiket uzlaşısı %65-70 bandındadır. Bağımsız token sınıflandırıcı (Logistic Regression) yalnızca %6.33 Span F1 alırken, HMM %13.03, CRF %14.42 ve BiLSTM-CRF %18.07 Strict Span F1 alır (kesinlikle %85-90 EM alamaz; model karşılaştırmaları için ideal bir non-saturated kıyaslama sunar).
 * **Data Engineering Effort:** Ham metin ve karakter ofset dizilerinden (`position: [8, 9, 10, ...]`) token sınırlarına hizalama (Token Alignment), bozuk karakter temizliği (NFKC), Inverse-Frequency Multi-Label önceliklendirmesi ve azınlık sınıfların ezilmesini önleyen Stratified Balanced Resampling sıfırdan yapılmıştır.
 
 ---
@@ -31,12 +31,12 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 | Tag | Semantic Description | Example Tokens | Train Count | Test Count |
 | :--- | :--- | :--- | :---: | :---: |
-| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 5,056 / 133 | 280 / 7 |
-| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 1,393 / 270 | 100 / 15 |
-| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 774 / 358 | 40 / 40 |
-| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 746 / 776 | 29 / 12 |
-| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 456 / 141 | 28 / 14 |
-| `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` | 338,878 | 19,163 |
+| `B-THREAT` / `I-THREAT` | Threats of violence, physical harm | `"kill"`, `"beat"`, `"destroy you"` | 972 / 972 | 122 / 122 |
+| `B-OTHER_TOXIC` / `I-OTHER_TOXIC` | Generalized toxicity and hostile statements | Aggressive ambiguous remarks | 828 / 828 | 107 / 107 |
+| `B-INSULT` / `I-INSULT` | Disparaging remarks, personal attacks | `"clown"`, `"moron"`, `"stupid"` | 817 / 817 | 110 / 110 |
+| `B-OBSCENE` / `I-OBSCENE` | Vulgarities, profanities, obscene phrases | Curse words and explicit terms | 713 / 713 | 110 / 110 |
+| `B-IDENTITY_ATTACK` / `I-IDENTITY_ATTACK` | Attacks on religion, race, gender, identity | Slurs targeting identity groups | 710 / 710 | 120 / 120 |
+| `O` | Neutral / non-toxic tokens | `"The"`, `"policy"`, `"is"` | 152,318 | 22,746 |
 
 *Special Sequence Model Tokens:* `<START>`, `<STOP>`, `<PAD>`.
 
@@ -44,14 +44,14 @@ This project formulates **Multi-Aspect Token-Level Rationale Extraction** under 
 
 ## 📊 3. Experimental Benchmark Results
 
-Evaluated on 420 independent test sentences using `seqeval` (Strict Span-Level IOB2 Evaluation):
+Evaluated on 600 independent test sentences (strictly 100 sentences per class across all 6 classes: 5 toxic + 1 neutral) using `seqeval` (Strict Span-Level IOB2 Evaluation):
 
 | Model Architecture | Strict Span F1 | Precision | Recall | Token Accuracy | Training Time |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Linear-Chain CRF (Feature-based)** | **0.6247** | **0.6556** | 0.5965 | **98.04%** | 19.29 s |
-| **BiLSTM-CRF (PyTorch Deep Sequence + Continuation Prior)**| 0.6226 | 0.5880 | 0.6617 | 97.86% | 191.90 s |
-| **Hidden Markov Model (HMM)** | 0.5978 | 0.5418 | 0.6667 | 97.39% | 0.17 s |
-| **Logistic Regression (Token Baseline + Class Weights)** | 0.4366 | 0.3149 | **0.7118** | 93.61% | 7.22 s |
+| **BiLSTM-CRF (PyTorch Deep Sequence)** | **0.1807** | 0.1622 | **0.2039** | 93.66% | 121.09 s |
+| **Linear-Chain CRF (Feature-based)** | 0.1442 | **0.2066** | 0.1107 | **94.96%** | 10.48 s |
+| **Hidden Markov Model (HMM)** | 0.1303 | 0.1583 | 0.1107 | 94.16% | **0.08 s** |
+| **Logistic Regression (Token Baseline)** | 0.0633 | 0.0426 | 0.1230 | 87.14% | 4.51 s |
 
 ### Key Experimental Insights:
 - **Hardcoded CRF Structural Constraints (-10000.0 Transition Shield):** Injected an immutable masking matrix into `BiLSTM_CRF` locking impossible transitions (`O -> I-X`, `B-THREAT -> I-OBSCENE`, `<START> -> I-X`) permanently to `-10000.0`. The model's raw inference output is physically incapable of producing an invalid BIO sequence.
@@ -75,10 +75,10 @@ NLP_Project2/
 │   │   ├── toxic_spans_train_raw.jsonl   (10,006 raw comments with character offsets)
 │   │   └── toxic_spans_test_raw.jsonl    (1,000 raw comments)
 │   └── processed/                     # Cleaned, tokenized, and balanced BIO splits
-│       ├── train.jsonl                   (8,400 balanced sequences: 1,400 per class + 1,400 neutral)
-│       ├── val.jsonl                     (900 validation sequences)
-│       ├── test.jsonl                    (480 test sequences)
-│       ├── vocab.json                    (Word vocabulary with min_freq=2, 9,902 tokens)
+│       ├── train.jsonl                   (4,025 balanced sequences with minority class weighting)
+│       ├── val.jsonl                     (600 validation sequences: 100 per class across 6 classes)
+│       ├── test.jsonl                    (600 test sequences: 100 per class across 6 classes)
+│       ├── vocab.json                    (Word vocabulary with min_freq=2, 6,050 tokens)
 │       ├── tag_to_ix.json                (Mapping of 11 BIO tags + special tokens)
 │       └── dataset_summary.json          (Token statistics and distribution)
 │

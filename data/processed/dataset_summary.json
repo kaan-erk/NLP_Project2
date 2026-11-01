@@ -1,9 +1,9 @@
 {
   "dataset_name": "Multi-Aspect Toxic Spans (Non-duplicated, Balanced Ratio)",
-  "train_samples": 600,
+  "train_samples": 4025,
   "val_samples": 600,
   "test_samples": 600,
-  "vocabulary_size": 1693,
+  "vocabulary_size": 6050,
   "total_tags": 14,
   "tag_to_ix": {
     "B-IDENTITY_ATTACK": 0,
@@ -22,17 +22,17 @@
     "<PAD>": 13
   },
   "train_tag_distribution": {
-    "O": 22958,
-    "B-THREAT": 128,
-    "I-THREAT": 128,
-    "B-IDENTITY_ATTACK": 121,
-    "I-IDENTITY_ATTACK": 121,
-    "B-OBSCENE": 118,
-    "I-OBSCENE": 118,
-    "B-OTHER_TOXIC": 102,
-    "I-OTHER_TOXIC": 102,
-    "B-INSULT": 102,
-    "I-INSULT": 102
+    "O": 152318,
+    "B-THREAT": 972,
+    "I-THREAT": 972,
+    "B-OTHER_TOXIC": 828,
+    "I-OTHER_TOXIC": 828,
+    "B-INSULT": 817,
+    "I-INSULT": 817,
+    "B-OBSCENE": 713,
+    "I-OBSCENE": 713,
+    "B-IDENTITY_ATTACK": 710,
+    "I-IDENTITY_ATTACK": 710
   },
   "test_tag_distribution": {
     "O": 22746,
