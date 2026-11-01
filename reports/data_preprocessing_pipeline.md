@@ -78,21 +78,21 @@ This alignment matches tokens to their intrinsic semantic definitions, allowing 
 ## 4. Balanced Dataset Statistics (8,400 Scale)
 
 ### Dataset Splits (Non-Duplicated, Exactly 100 Sentences/Class in Eval)
-- **Training Set (`train.jsonl`):** 4,025 samples (~800 per toxic category, 400 neutral)
+- **Training Set (`train.jsonl`):** 3,875 samples (~600-800 per toxic category, 250 neutral)
 - **Validation Set (`val.jsonl`):** 600 samples (strictly 100 sentences per class across 6 classes)
 - **Test Set (`test.jsonl`):** 600 samples (strictly 100 sentences per class across 6 classes)
-- **Vocabulary Size:** 6,050 unique words ($N_{\min}=2$).
+- **Vocabulary Size:** 5,872 unique words ($N_{\min}=2$).
 
-### Tag Distribution (Strict B == I Parity, Diff = 0)
+### Disambiguated Tag Distribution
 
 | Tag | Train Token Count | Test Token Count | Semantic Description |
 | :--- | :--- | :--- | :--- |
-| **`B-THREAT`** / **`I-THREAT`** | 972 / 972 | 122 / 122 | Explicit statements of physical harm/violence |
-| **`B-OTHER_TOXIC`** / **`I-OTHER_TOXIC`** | 828 / 828 | 107 / 107 | Ambiguous or generalized abusive language |
-| **`B-INSULT`** / **`I-INSULT`** | 817 / 817 | 110 / 110 | Direct insults and personal disparagement |
-| **`B-OBSCENE`** / **`I-OBSCENE`** | 713 / 713 | 110 / 110 | Vulgarities, swear words, and profanities |
-| **`B-IDENTITY_ATTACK`** / **`I-IDENTITY_ATTACK`** | 710 / 710 | 120 / 120 | Targeted identity, racial, or religious slurs |
-| **`O` (Neutral Tokens)** | 152,318 | 22,746 | Grammatical sentence background |
+| **`B-INSULT`** / **`I-INSULT`** | 2,699 / 77 | 366 / 6 | Direct insults and personal disparagement |
+| **`B-OBSCENE`** / **`I-OBSCENE`** | 683 / 177 | 102 / 19 | Vulgarities, swear words, and profanities |
+| **`B-THREAT`** / **`I-THREAT`** | 426 / 337 | 46 / 55 | Explicit statements of physical harm/violence |
+| **`B-IDENTITY_ATTACK`** / **`I-IDENTITY_ATTACK`** | 335 / 174 | 63 / 45 | Targeted identity, racial, or religious slurs |
+| **`B-OTHER_TOXIC`** / **`I-OTHER_TOXIC`** | 261 / 102 | 40 / 11 | Ambiguous or generalized abusive language |
+| **`O` (Neutral Tokens)** | 148,137 | 23,131 | Grammatical sentence background |
 
 > [!NOTE]
 > In natural sequence labeling tasks, `O` represents grammatical syntax background. Through our non-duplicated sampling and strict span alignment, all 5 toxic entity categories possess balanced representations in training and exactly 100 sentences each in test/val sets. Crucially, count(B) == count(I) holds with exact zero difference across every toxic category.

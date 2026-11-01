@@ -122,25 +122,26 @@ def plot_confusion_matrix(
     flat_true = [tag for seq in y_true for tag in seq]
     flat_pred = [tag for seq in y_pred for tag in seq]
     
-    # Always compute over all 11 classes first to capture total true support per class
-    cm_full = confusion_matrix(flat_true, flat_pred, labels=ORDERED_BIO_TAGS)
-    
-    if normalize:
-        row_sums = cm_full.sum(axis=1, keepdims=True)
-        row_sums[row_sums == 0] = 1
-        cm_norm = cm_full.astype("float") / row_sums
-    else:
-        cm_norm = cm_full
-        
     if toxic_only:
-        # Keep the 10 toxic classes (first 10 of ORDERED_BIO_TAGS)
         active_classes = TOXIC_ONLY_TAGS
-        cm_to_plot = cm_norm[:10, :10]
+        cm_sub = confusion_matrix(flat_true, flat_pred, labels=TOXIC_ONLY_TAGS)
+        if normalize:
+            sub_row_sums = cm_sub.sum(axis=1, keepdims=True)
+            sub_row_sums[sub_row_sums == 0] = 1
+            cm_to_plot = cm_sub.astype("float") / sub_row_sums
+        else:
+            cm_to_plot = cm_sub
         fmt = ".2f" if normalize else "d"
-        cbar_label = "Recall per Class" if normalize else "Token Count"
+        cbar_label = "Toxic-Aspect Precision/Recall" if normalize else "Token Count"
     else:
         active_classes = ORDERED_BIO_TAGS
-        cm_to_plot = cm_norm
+        cm_full = confusion_matrix(flat_true, flat_pred, labels=ORDERED_BIO_TAGS)
+        if normalize:
+            row_sums = cm_full.sum(axis=1, keepdims=True)
+            row_sums[row_sums == 0] = 1
+            cm_to_plot = cm_full.astype("float") / row_sums
+        else:
+            cm_to_plot = cm_full
         fmt = ".2f" if normalize else "d"
         cbar_label = "Recall per Class" if normalize else "Token Count"
         

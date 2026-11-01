@@ -1,9 +1,9 @@
 {
   "dataset_name": "Multi-Aspect Toxic Spans (Non-duplicated, Balanced Ratio)",
-  "train_samples": 4025,
+  "train_samples": 3875,
   "val_samples": 600,
   "test_samples": 600,
-  "vocabulary_size": 6050,
+  "vocabulary_size": 5872,
   "total_tags": 14,
   "tag_to_ix": {
     "B-IDENTITY_ATTACK": 0,
@@ -22,29 +22,29 @@
     "<PAD>": 13
   },
   "train_tag_distribution": {
-    "O": 152318,
-    "B-THREAT": 972,
-    "I-THREAT": 972,
-    "B-OTHER_TOXIC": 828,
-    "I-OTHER_TOXIC": 828,
-    "B-INSULT": 817,
-    "I-INSULT": 817,
-    "B-OBSCENE": 713,
-    "I-OBSCENE": 713,
-    "B-IDENTITY_ATTACK": 710,
-    "I-IDENTITY_ATTACK": 710
+    "O": 148137,
+    "B-INSULT": 2699,
+    "B-OBSCENE": 683,
+    "B-THREAT": 426,
+    "I-THREAT": 337,
+    "B-IDENTITY_ATTACK": 335,
+    "B-OTHER_TOXIC": 261,
+    "I-OBSCENE": 177,
+    "I-IDENTITY_ATTACK": 174,
+    "I-OTHER_TOXIC": 102,
+    "I-INSULT": 77
   },
   "test_tag_distribution": {
-    "O": 22746,
-    "B-THREAT": 122,
-    "I-THREAT": 122,
-    "B-IDENTITY_ATTACK": 120,
-    "I-IDENTITY_ATTACK": 120,
-    "B-INSULT": 110,
-    "I-INSULT": 110,
-    "B-OBSCENE": 110,
-    "I-OBSCENE": 110,
-    "B-OTHER_TOXIC": 107,
-    "I-OTHER_TOXIC": 107
+    "O": 23131,
+    "B-INSULT": 366,
+    "B-OBSCENE": 102,
+    "B-IDENTITY_ATTACK": 63,
+    "I-THREAT": 55,
+    "B-THREAT": 46,
+    "I-IDENTITY_ATTACK": 45,
+    "B-OTHER_TOXIC": 40,
+    "I-OBSCENE": 19,
+    "I-OTHER_TOXIC": 11,
+    "I-INSULT": 6
   }
 }

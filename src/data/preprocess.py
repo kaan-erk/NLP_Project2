@@ -150,66 +150,70 @@ def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
     if category == "NEUTRAL_O" or not positions:
         return bio_tags
         
-    matched = set()
-    # Step 1: multi-word phrases (they naturally have B- followed by I-)
+    matched_tokens = set()
+    # Step 1: Detect natural multi-word phrases across all categories
     for cat, phrases in MULTI_WORD_PATTERNS.items():
-        if cat != category:
-            continue
         for phrase in phrases:
-            start = 0
+            start_char = 0
             while True:
-                idx = doc_text_lower.find(phrase, start)
-                if idx == -1:
+                found_idx = doc_text_lower.find(phrase, start_char)
+                if found_idx == -1:
                     break
-                p_chars = set(range(idx, idx + len(phrase)))
-                p_toks = []
-                for t_idx, token in enumerate(doc):
-                    t_len = len(token.text)
-                    if t_len > 0 and not token.text.isspace():
-                        if set(range(token.idx, token.idx + t_len)).intersection(p_chars):
-                            p_toks.append(t_idx)
-                if len(p_toks) >= 2 and p_toks[0] not in matched and p_toks[1] not in matched:
-                    bio_tags[p_toks[0]] = f"B-{category}"
-                    bio_tags[p_toks[1]] = f"I-{category}"
-                    matched.update([p_toks[0], p_toks[1]])
-                start = idx + len(phrase)
+                phrase_end = found_idx + len(phrase)
+                phrase_char_indices = set(range(found_idx, phrase_end))
+                
+                # If this phrase overlaps with toxic annotations or document category
+                if phrase_char_indices.intersection(positions) or category == cat:
+                    phrase_tokens = []
+                    for t_idx, token in enumerate(doc):
+                        t_len = len(token.text)
+                        if t_len > 0 and not token.text.isspace():
+                            t_chars = set(range(token.idx, token.idx + t_len))
+                            if t_chars.intersection(phrase_char_indices):
+                                phrase_tokens.append(t_idx)
+                    
+                    if len(phrase_tokens) >= 2 and all(t not in matched_tokens for t in phrase_tokens):
+                        bio_tags[phrase_tokens[0]] = f"B-{cat}"
+                        matched_tokens.add(phrase_tokens[0])
+                        for rest in phrase_tokens[1:]:
+                            bio_tags[rest] = f"I-{cat}"
+                            matched_tokens.add(rest)
+                            
+                start_char = found_idx + len(phrase)
 
-    # Step 2: raw annotations
-    unmatched_pos = set(positions)
-    for t_idx in matched:
-        tok_chars = set(range(doc[t_idx].idx, doc[t_idx].idx + len(doc[t_idx].text)))
-        unmatched_pos.difference_update(tok_chars)
-        
-    cand_toks = []
+    # Step 2: For remaining tokens, align toxic positions with aspect disambiguation
+    in_span = False
+    curr_cat = category
     for t_idx, token in enumerate(doc):
-        if t_idx in matched:
+        if t_idx in matched_tokens:
+            in_span = False
             continue
-        t_chars = set(range(token.idx, token.idx + len(token.text)))
-        if t_chars.intersection(unmatched_pos):
-            cand_toks.append(t_idx)
             
-    # Strictly pair into 2-token spans [B, I] so count(B) == count(I)
-    i = 0
-    while i < len(cand_toks):
-        curr = cand_toks[i]
-        if curr in matched:
-            i += 1
+        token_len = len(token.text)
+        if token_len == 0 or token.text.isspace():
+            bio_tags[t_idx] = "O"
+            in_span = False
             continue
-        if i + 1 < len(cand_toks) and cand_toks[i + 1] == curr + 1 and cand_toks[i + 1] not in matched:
-            bio_tags[curr] = f"B-{category}"
-            bio_tags[cand_toks[i + 1]] = f"I-{category}"
-            matched.update([curr, cand_toks[i + 1]])
-            i += 2
+            
+        token_chars = set(range(token.idx, token.idx + token_len))
+        overlap = token_chars.intersection(positions)
+        is_token_toxic = (len(overlap) >= token_len * 0.5) if token_len > 1 else (len(overlap) > 0)
+        
+        if is_token_toxic:
+            tok_cat = get_token_aspect(token.text.lower(), category)
+            if not in_span:
+                curr_cat = tok_cat
+                bio_tags[t_idx] = f"B-{curr_cat}"
+                in_span = True
+            else:
+                if tok_cat != curr_cat and tok_cat in {"THREAT", "OBSCENE", "IDENTITY_ATTACK", "INSULT"}:
+                    curr_cat = tok_cat
+                    bio_tags[t_idx] = f"B-{curr_cat}"
+                else:
+                    bio_tags[t_idx] = f"I-{curr_cat}"
         else:
-            if curr + 1 < len(doc) and not doc[curr + 1].is_punct and not doc[curr + 1].is_space and (curr + 1) not in matched:
-                bio_tags[curr] = f"B-{category}"
-                bio_tags[curr + 1] = f"I-{category}"
-                matched.update([curr, curr + 1])
-            elif curr > 0 and not doc[curr - 1].is_punct and not doc[curr - 1].is_space and (curr - 1) not in matched:
-                bio_tags[curr - 1] = f"B-{category}"
-                bio_tags[curr] = f"I-{category}"
-                matched.update([curr - 1, curr])
-            i += 1
+            bio_tags[t_idx] = "O"
+            in_span = False
             
     return bio_tags
 
@@ -262,7 +266,7 @@ def create_non_duplicated_splits(
 
     train_caps = {
         "INSULT": 800,
-        "NEUTRAL_O": 400,
+        "NEUTRAL_O": 250,
         "OBSCENE": 800,
         "IDENTITY_ATTACK": 800
     }
