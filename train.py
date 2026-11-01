@@ -190,10 +190,14 @@ def train_and_eval_bilstm_crf(
                 tag_counts[tag_to_ix[t]] += 1
                 
     tag_counts = torch.clamp(tag_counts, min=1.0)
-    inv_sqrt = 1.0 / torch.sqrt(tag_counts)
-    class_weights = inv_sqrt / inv_sqrt.mean()
-    class_weights = torch.clamp(class_weights, min=0.2, max=5.0).to(device)
-    logging.info(f"Smoothed Inverse Square Root class weights computed (min={class_weights.min():.2f}, max={class_weights.max():.2f})")
+    # Calculate Raw Inverse Frequency
+    total_tokens = tag_counts.sum()
+    num_classes = len(tag_counts)
+    
+    class_weights = total_tokens / (num_classes * tag_counts)
+    class_weights = class_weights.to(device)
+    
+    logging.info(f"Aggressive Inverse Frequency weights computed (min={class_weights.min():.2f}, max={class_weights.max():.2f})")
     
     model = BiLSTM_CRF(
         vocab_size=len(vocab),
