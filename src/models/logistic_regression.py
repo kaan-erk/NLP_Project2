@@ -61,16 +61,19 @@ class LogisticRegressionBaseline:
         y = np.array(all_tags)
         self.classes_ = sorted(list(set(all_tags)))
 
-        # Smoothed Inverse Square Root Class Weights (w_c = 1 / sqrt(freq_c))
+        # Aggressive Inverse Frequency Class Weights (Total / (C * freq_c))
         tag_counts = Counter(all_tags)
-        raw_weights = {cls: 1.0 / np.sqrt(tag_counts.get(cls, 1)) for cls in self.classes_}
-        mean_w = np.mean(list(raw_weights.values()))
-        smoothed_weights = {cls: float(np.clip(w / mean_w, 0.2, 5.0)) for cls, w in raw_weights.items()}
+        total_tokens = len(all_tags)
+        num_classes = len(self.classes_)
+        raw_weights = {cls: total_tokens / (num_classes * tag_counts.get(cls, 1)) for cls in self.classes_}
+        if "O" in raw_weights:
+            raw_weights["O"] = 0.25
+        agg_weights = {cls: float(np.clip(w, 0.1, 35.0)) for cls, w in raw_weights.items()}
 
         self.clf = LogisticRegression(
             C=self.C,
             max_iter=self.max_iter,
-            class_weight=smoothed_weights,
+            class_weight=agg_weights,
             solver="lbfgs",
             random_state=42
         )

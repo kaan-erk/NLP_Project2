@@ -198,7 +198,7 @@ class BiLSTM_CRF(nn.Module):
                 active_tags,
                 weight=self.class_weights
             )
-            return crf_loss + 0.1 * aux_loss
+            return crf_loss + 0.3 * aux_loss
             
         return crf_loss
 

@@ -112,7 +112,9 @@ def plot_confusion_matrix(
 ):
     """
     Flattens token tags and computes confusion matrix.
-    toxic_only: If True, zooms into the 10 toxic classes, excluding the dominant 'O' class.
+    Computes full 11-class matrix first so row sums reflect ALL true gold tokens.
+    toxic_only: If True, zooms into the 10 toxic classes, displaying true class recall
+                on the diagonal and true cross-class confusion rates, avoiding discrete artifacts.
     """
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     out_path = FIGURES_DIR / filename
@@ -120,21 +122,27 @@ def plot_confusion_matrix(
     flat_true = [tag for seq in y_true for tag in seq]
     flat_pred = [tag for seq in y_pred for tag in seq]
     
-    classes_to_use = TOXIC_ONLY_TAGS if toxic_only else ORDERED_BIO_TAGS
-    active_classes = [c for c in classes_to_use if c in set(flat_true).union(set(flat_pred))]
-    
-    cm = confusion_matrix(flat_true, flat_pred, labels=active_classes)
+    # Always compute over all 11 classes first to capture total true support per class
+    cm_full = confusion_matrix(flat_true, flat_pred, labels=ORDERED_BIO_TAGS)
     
     if normalize:
-        row_sums = cm.sum(axis=1, keepdims=True)
+        row_sums = cm_full.sum(axis=1, keepdims=True)
         row_sums[row_sums == 0] = 1
-        cm_to_plot = cm.astype("float") / row_sums
-        fmt = ".2f"
-        cbar_label = "Recall per Class"
+        cm_norm = cm_full.astype("float") / row_sums
     else:
-        cm_to_plot = cm
-        fmt = "d"
-        cbar_label = "Token Count"
+        cm_norm = cm_full
+        
+    if toxic_only:
+        # Keep the 10 toxic classes (first 10 of ORDERED_BIO_TAGS)
+        active_classes = TOXIC_ONLY_TAGS
+        cm_to_plot = cm_norm[:10, :10]
+        fmt = ".2f" if normalize else "d"
+        cbar_label = "Recall per Class" if normalize else "Token Count"
+    else:
+        active_classes = ORDERED_BIO_TAGS
+        cm_to_plot = cm_norm
+        fmt = ".2f" if normalize else "d"
+        cbar_label = "Recall per Class" if normalize else "Token Count"
         
     plt.figure(figsize=(11, 9))
     sns.heatmap(
@@ -145,7 +153,9 @@ def plot_confusion_matrix(
         annot=True,
         fmt=fmt,
         cbar_kws={"label": cbar_label},
-        linewidths=0.5
+        linewidths=0.5,
+        vmin=0.0,
+        vmax=1.0 if normalize else None
     )
     subtitle = "Toxic Classes Only" if toxic_only else "All 11 Classes (O at End)"
     plt.title(f"{title} - {subtitle} ({'Normalized' if normalize else 'Counts'})", fontsize=13, pad=12, fontweight="bold")

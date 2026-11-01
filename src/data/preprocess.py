@@ -1,9 +1,3 @@
-"""
-Data Preprocessing, Token Alignment, and Balanced Multi-Class Resampling Pipeline.
-Ensures equal sample representation across all fine-grained toxic categories:
-INSULT, IDENTITY_ATTACK, OBSCENE, THREAT, and OTHER_TOXIC.
-"""
-
 import ast
 import json
 import logging
@@ -21,14 +15,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 RAW_DATA_DIR = Path("data/raw")
 PROCESSED_DATA_DIR = Path("data/processed")
 
-# Supported Toxicity Categories in Order of Specificity / Inverse Frequency
 PRIORITY_CATEGORIES = ["THREAT", "IDENTITY_ATTACK", "OBSCENE", "OTHER_TOXIC", "INSULT"]
 
 def determine_specific_category(type_val: Any) -> str:
-    """
-    Extracts the most specific/minority category present in the annotations.
-    Prevents the broad generic 'insult' umbrella from overshadowing 'threat' or 'identity_attack'.
-    """
     if not type_val:
         return "OTHER_TOXIC"
     try:
@@ -65,13 +54,11 @@ def determine_specific_category(type_val: Any) -> str:
         return "OTHER_TOXIC"
 
 def clean_text(text: str) -> str:
-    """Clean corrupted unicode and control characters while preserving lengths."""
     text = unicodedata.normalize("NFKC", text)
     cleaned = "".join(c if (c.isprintable() or c in "\n\r\t") else " " for c in text)
     return cleaned
 
 def parse_positions(pos_val: Any) -> set:
-    """Parse character position indices from string or list."""
     if not pos_val:
         return set()
     try:
@@ -87,24 +74,25 @@ def parse_positions(pos_val: Any) -> set:
 
 THREAT_WORDS = {
     "kill", "killing", "killed", "killer", "killers", "die", "death", "murder", "murdered", "murdering",
-    "shoot", "shooting", "shot", "hang", "hanged", "beat", "beaten", "punch", "destroy",
-    "destroying", "destroyed", "stab", "stabbed", "burn", "burned", "burning", "rape", "raped",
-    "raping", "bomb", "bombing", "bombed", "execute", "executed", "choke", "choking", "slit",
-    "throat", "bullet", "assassinate", "dead"
+    "shoot", "shooting", "shot", "hang", "hanged", "hanging", "beat", "beaten", "punch", "punched", "destroy",
+    "destroying", "destroyed", "stab", "stabbed", "stabbing", "burn", "burned", "burning", "rape", "raped",
+    "raping", "bomb", "bombing", "bombed", "execute", "executed", "execution", "choke", "choking", "slit",
+    "throat", "bullet", "assassinate", "assassination", "dead", "torture", "tortured", "torturing", "slaughter",
+    "butcher", "drown", "massacre", "poison", "assault", "strangle", "terminate", "attack", "hurt", "harm"
 }
 
 OBSCENE_WORDS = {
     "fuck", "fucking", "fucked", "fucker", "fuckers", "shit", "shitty", "bullshit", "bitch",
     "bitches", "bitching", "ass", "asshole", "assholes", "cunt", "cunts", "dick", "dicks",
-    "pussy", "bastard", "bastards", "damn", "crap", "d*ckhead", "dickhead", "cock", "tits",
-    "prick", "whore", "slut"
+    "pussy", "bastard", "bastards", "damn", "crap", "d*ckhead", "dickhead", "cock", "cocks", "tits",
+    "prick", "whore", "whores", "slut", "sluts", "dipshit", "wanker", "jackass"
 }
 
 IDENTITY_WORDS = {
     "racist", "racists", "racism", "bigot", "bigots", "bigotry", "gay", "queer", "fag", "faggot", "faggots",
     "dyke", "nigger", "nigga", "niggers", "negro", "retard", "retarded", "spic", "chink", "kike",
-    "tranny", "transgender", "muslims", "islamist", "jews", "jewish", "blacks", "whites",
-    "immigrants", "mexicans", "homosexual"
+    "tranny", "trans", "transgender", "muslims", "islamist", "islamophobia", "jews", "jewish", "anti-semitic",
+    "blacks", "whites", "immigrants", "mexicans", "homosexual", "homophobia", "nazi", "nazis", "gypsy"
 }
 
 INSULT_WORDS = {
@@ -113,11 +101,10 @@ INSULT_WORDS = {
     "dumbest", "jerk", "jerks", "buffoon", "buffoons", "ignorant", "ignorance", "disgusting",
     "pathetic", "ugly", "hypocrite", "hypocrites", "liar", "liars", "cheat", "corrupt", "trash",
     "garbage", "pig", "pigs", "filth", "filthy", "incompetent", "imbecile", "useless", "coward",
-    "cowards", "shame", "scum"
+    "cowards", "shame", "scum", "creep", "freak"
 }
 
 def get_token_aspect(token_lower: str, doc_category: str) -> str:
-    """Disambiguate true token-level semantic category based on linguistic lexicon."""
     if token_lower in THREAT_WORDS:
         return "THREAT"
     if token_lower in OBSCENE_WORDS:
@@ -129,10 +116,6 @@ def get_token_aspect(token_lower: str, doc_category: str) -> str:
     return doc_category
 
 def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
-    """
-    Align token character spans with toxic character offsets to construct strict BIO tags
-    using token-level aspect disambiguation.
-    """
     bio_tags = []
     in_span = False
     curr_cat = category
@@ -168,7 +151,6 @@ def align_doc_to_bio(doc, positions: set, category: str) -> List[str]:
     return bio_tags
 
 def load_and_group_raw(file_path: Path) -> Dict[str, List[Dict[str, Any]]]:
-    """Loads raw jsonl and groups samples by fine-grained category."""
     grouped = defaultdict(list)
     with open(file_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -182,48 +164,90 @@ def load_and_group_raw(file_path: Path) -> Dict[str, List[Dict[str, Any]]]:
                     grouped["NEUTRAL_O"].append(item)
     return grouped
 
-def create_balanced_split(
-    grouped_data: Dict[str, List[Dict[str, Any]]],
-    target_per_class: int,
+def create_non_duplicated_splits(
+    grouped_train: Dict[str, List[Dict[str, Any]]],
+    grouped_test: Dict[str, List[Dict[str, Any]]],
     seed: int = 42
-) -> List[Dict[str, Any]]:
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Extracts an exactly equal number of samples per toxic category,
-    plus the same target number of neutral sentences.
+    Creates Train, Val, Test splits with:
+    - ZERO duplicate samples (no oversampling).
+    - Downsampled majority classes (INSULT downsampled by ~68%, NEUTRAL downsampled by ~93%)
+      to prevent 'O' from overwhelming the sequence model.
+    - All available unique minority samples (THREAT, IDENTITY_ATTACK, OTHER_TOXIC) used fully.
     """
     random.seed(seed)
-    balanced_samples = []
-
-    for cat in PRIORITY_CATEGORIES:
-        pool = grouped_data.get(cat, [])
-        if len(pool) >= target_per_class:
-            selected = random.sample(pool, target_per_class)
+    
+    # Train targets (exact unique samples taken without replacement)
+    # Val reservation counts (taken from train pool to ensure clean out-of-fold validation)
+    val_counts = {
+        "THREAT": 40,
+        "IDENTITY_ATTACK": 80,
+        "OBSCENE": 80,
+        "OTHER_TOXIC": 50,
+        "INSULT": 120,
+        "NEUTRAL_O": 60
+    }
+    
+    # Majority class caps for training to prevent O and INSULT explosion
+    train_caps = {
+        "INSULT": 950,      # Downsample 2839 -> 950
+        "NEUTRAL_O": 350    # Downsample 4878 -> 350 to prevent O domination!
+    }
+    
+    train_samples_raw = []
+    val_samples_raw = []
+    
+    for cat in PRIORITY_CATEGORIES + ["NEUTRAL_O"]:
+        pool = list(grouped_train.get(cat, []))
+        random.shuffle(pool)
+        
+        v_num = min(val_counts.get(cat, 50), len(pool) // 5)
+        val_items = pool[:v_num]
+        train_pool = pool[v_num:]
+        
+        # Apply cap if defined, otherwise take ALL remaining unique samples
+        if cat in train_caps and len(train_pool) > train_caps[cat]:
+            train_items = train_pool[:train_caps[cat]]
         else:
-            # Oversample minority class to reach exact target
-            selected = pool + random.choices(pool, k=target_per_class - len(pool))
+            train_items = train_pool
+            
+        for item in train_items:
+            cp = dict(item)
+            cp["assigned_category"] = cat
+            train_samples_raw.append(cp)
+            
+        for item in val_items:
+            cp = dict(item)
+            cp["assigned_category"] = cat
+            val_samples_raw.append(cp)
+            
+    # Test split from grouped_test (completely independent 1,000 raw samples, ZERO duplicates)
+    test_samples_raw = []
+    test_caps = {
+        "INSULT": 120,
+        "NEUTRAL_O": 80
+    }
+    for cat in PRIORITY_CATEGORIES + ["NEUTRAL_O"]:
+        pool = list(grouped_test.get(cat, []))
+        random.shuffle(pool)
+        if cat in test_caps and len(pool) > test_caps[cat]:
+            selected = pool[:test_caps[cat]]
+        else:
+            selected = pool
             
         for item in selected:
-            sample_copy = dict(item)
-            sample_copy["assigned_category"] = cat
-            balanced_samples.append(sample_copy)
-
-    # Add neutral sentences
-    neutral_pool = grouped_data.get("NEUTRAL_O", [])
-    if len(neutral_pool) >= target_per_class:
-        selected_neutral = random.sample(neutral_pool, target_per_class)
-    else:
-        selected_neutral = neutral_pool + random.choices(neutral_pool, k=target_per_class - len(neutral_pool))
-        
-    for item in selected_neutral:
-        sample_copy = dict(item)
-        sample_copy["assigned_category"] = "NEUTRAL_O"
-        balanced_samples.append(sample_copy)
-
-    random.shuffle(balanced_samples)
-    return balanced_samples
+            cp = dict(item)
+            cp["assigned_category"] = cat
+            test_samples_raw.append(cp)
+            
+    random.shuffle(train_samples_raw)
+    random.shuffle(val_samples_raw)
+    random.shuffle(test_samples_raw)
+    
+    return train_samples_raw, val_samples_raw, test_samples_raw
 
 def process_and_align_samples(raw_samples: List[Dict[str, Any]], nlp) -> List[Dict[str, Any]]:
-    """Runs spaCy pipeline, token alignment, and extracts linguistic features."""
     texts = [clean_text(r.get("text_of_post", "")) for r in raw_samples]
     docs = list(nlp.pipe(texts, batch_size=256))
     
@@ -255,7 +279,6 @@ def process_and_align_samples(raw_samples: List[Dict[str, Any]], nlp) -> List[Di
     return processed
 
 def build_tag_vocabulary() -> Dict[str, int]:
-    """Canonical 11 BIO tags + special sequence model tokens."""
     base_tags = ["O"]
     for cat in PRIORITY_CATEGORIES:
         base_tags.extend([f"B-{cat}", f"I-{cat}"])
@@ -302,22 +325,16 @@ def main():
     for k, v in grouped_test.items():
         print(f"  {k:<20}: {len(v)}")
         
-    # Balanced Sampling:
-    # Train: 1400 per class (1400 * 5 toxic = 7,000 toxic + 1400 neutral = 8,400)
-    # Val: 150 per class (150 * 5 toxic = 750 toxic + 150 neutral = 900)
-    # Test: 80 per class (80 * 5 toxic = 400 toxic + 80 neutral = 480)
-    train_balanced_raw = create_balanced_split(grouped_train, target_per_class=1400, seed=42)
-    val_balanced_raw = create_balanced_split(grouped_train, target_per_class=150, seed=123)
-    test_balanced_raw = create_balanced_split(grouped_test, target_per_class=80, seed=999)
+    train_raw, val_raw, test_raw = create_non_duplicated_splits(grouped_train, grouped_test, seed=42)
     
-    logging.info(f"Processing and aligning {len(train_balanced_raw)} train samples...")
-    train_samples = process_and_align_samples(train_balanced_raw, nlp)
+    logging.info(f"Processing {len(train_raw)} unique train samples (zero duplicates, downsampled majority)...")
+    train_samples = process_and_align_samples(train_raw, nlp)
     
-    logging.info(f"Processing and aligning {len(val_balanced_raw)} val samples...")
-    val_samples = process_and_align_samples(val_balanced_raw, nlp)
+    logging.info(f"Processing {len(val_raw)} unique val samples...")
+    val_samples = process_and_align_samples(val_raw, nlp)
     
-    logging.info(f"Processing and aligning {len(test_balanced_raw)} test samples...")
-    test_samples = process_and_align_samples(test_balanced_raw, nlp)
+    logging.info(f"Processing {len(test_raw)} unique test samples...")
+    test_samples = process_and_align_samples(test_raw, nlp)
     
     # Save splits
     for name, data in [("train", train_samples), ("val", val_samples), ("test", test_samples)]:
@@ -346,7 +363,7 @@ def main():
         test_tag_counts.update(s["tags"])
         
     stats = {
-        "dataset_name": "Multi-Aspect Toxic Spans (Balanced Resampling)",
+        "dataset_name": "Multi-Aspect Toxic Spans (Non-duplicated, Balanced Ratio)",
         "train_samples": len(train_samples),
         "val_samples": len(val_samples),
         "test_samples": len(test_samples),
@@ -360,11 +377,11 @@ def main():
     with open(PROCESSED_DATA_DIR / "dataset_summary.json", "w", encoding="utf-8") as f:
         json.dump(stats, f, indent=2, ensure_ascii=False)
         
-    print("\n--- BALANCED TRAIN TAG DISTRIBUTION ---")
+    print("\n--- CLEAN TRAIN TAG DISTRIBUTION ---")
     for tag, cnt in train_tag_counts.most_common():
         print(f"  {tag:<22}: {cnt}")
         
-    print("\n--- BALANCED TEST TAG DISTRIBUTION ---")
+    print("\n--- CLEAN TEST TAG DISTRIBUTION ---")
     for tag, cnt in test_tag_counts.most_common():
         print(f"  {tag:<22}: {cnt}")
 

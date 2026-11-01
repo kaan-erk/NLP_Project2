@@ -169,17 +169,6 @@ def train_and_eval_bilstm_crf(
     val_ds = ToxicSpanDataset(val_file, vocab, tag_to_ix)
     test_ds = ToxicSpanDataset(test_file, vocab, tag_to_ix)
     
-    # --- OVERSAMPLE MINORITY CLASSES ---
-    logging.info("Oversampling minority toxic classes in training data...")
-    oversampled_data = []
-    for s in train_ds.samples:
-        oversampled_data.append(s)
-        # If the sentence contains a rare tag, duplicate it 4 extra times
-        if any(t in s["tags"] for t in ["B-THREAT", "I-THREAT", "B-IDENTITY_ATTACK", "I-IDENTITY_ATTACK", "B-OTHER_TOXIC"]):
-            oversampled_data.extend([s] * 4)
-            
-    train_ds.samples = oversampled_data
-    # -----------------------------------
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True,
         collate_fn=lambda b: pad_collate_fn(b, pad_word_idx, pad_tag_idx)
@@ -201,14 +190,14 @@ def train_and_eval_bilstm_crf(
                 tag_counts[tag_to_ix[t]] += 1
                 
     tag_counts = torch.clamp(tag_counts, min=1.0)
-    # Calculate Raw Inverse Frequency
     total_tokens = tag_counts.sum()
-    num_classes = len(tag_counts)
-    
-    class_weights = total_tokens / (num_classes * tag_counts)
-    class_weights = class_weights.to(device)
-    
-    logging.info(f"Aggressive Inverse Frequency weights computed (min={class_weights.min():.2f}, max={class_weights.max():.2f})")
+    num_classes = len(tag_to_ix)
+    raw_inv_freq = total_tokens / (num_classes * tag_counts)
+    o_idx = tag_to_ix.get("O", -1)
+    if o_idx != -1:
+        raw_inv_freq[o_idx] = 0.2
+    class_weights = torch.clamp(raw_inv_freq, min=0.1, max=35.0).to(device)
+    logging.info(f"Aggressive Inverse Frequency class weights computed (min={class_weights.min():.2f}, max={class_weights.max():.2f})")
     
     model = BiLSTM_CRF(
         vocab_size=len(vocab),
