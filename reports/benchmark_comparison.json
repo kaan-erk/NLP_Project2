@@ -1,0 +1,10 @@
+[
+  {
+    "Model": "Linear-Chain CRF",
+    "Strict Span F1": 0.5158,
+    "Precision": 0.6497,
+    "Recall": 0.4277,
+    "Token Accuracy": 0.9769,
+    "Training Time (s)": 42.68
+  }
+]

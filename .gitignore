@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Large Model Checkpoints (optional, keep if <100MB)
+# checkpoints/*.pt
+
